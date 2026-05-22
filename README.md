@@ -1,198 +1,159 @@
-# Shop TTS E-Commerce Platform
+# Shop TTS - E-Commerce Graduation Project
 
-Monorepo structure for a full-stack e-commerce application built with **Clean Architecture**, **CQRS**, and **MediatR**.
+Full-stack e-commerce system built for a graduation thesis. The backend follows Clean Architecture + CQRS, and the frontend uses Next.js App Router.
 
-## 📁 Project Structure
+## Overview
+
+This project is a complete online shopping platform with three main roles:
+
+- Customer: browse products, search, cart, checkout
+- Seller: manage products, view orders, manage shop
+- Admin: manage users, categories, brands, sliders, approvals
+
+The system is designed for scalability, clear separation of concerns, and easy maintenance.
+
+## Key Features
+
+### Customer
+
+- Product listing, filtering, and search
+- Product detail page with ratings
+- Cart and checkout flow
+- Wishlist and compare list
+
+### Seller
+
+- Manage shop profile
+- Add/update products
+- View and process orders
+
+### Admin
+
+- Manage categories, brands, sliders, coupons
+- Review business registration
+- User management and order monitoring
+
+### System
+
+- JWT authentication (Supabase-based)
+- Role-based authorization
+- Background data seeding (roles, sample data)
+
+## Architecture
+
+Backend follows Clean Architecture:
+
+- Domain: entities, enums, exceptions, interfaces
+- Application: DTOs, CQRS commands/queries, handlers, validators
+- Infrastructure: EF Core, repositories, integrations
+- API: controllers, middleware, DI setup
+
+## Tech Stack
+
+- Backend: ASP.NET Core 10, EF Core 9, MediatR
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- Database: PostgreSQL (Supabase)
+
+## Project Structure
 
 ```
-Shop_TTS_V1/
-├── backend/                           # ASP.NET Core 10 API (Clean Architecture)
-│   ├── ShopxBase.Domain/              # Domain Layer (Business Logic)
-│   ├── ShopxBase.Application/         # Application Layer (Use Cases, CQRS)
-│   ├── ShopxBase.Api/                 # API Layer (Controllers, Endpoints)
-│   ├── ShopxBase.Infrastucture/       # Infrastructure Layer (Data Access, EF)
-│   ├── Database/                      # Database scripts
-│   ├── ShopxBase.slnx                 # Solution file
+Shop_TTS_v1/
+├── backend/
+│   ├── ShopxBase.Api/
+│   ├── ShopxBase.Application/
+│   ├── ShopxBase.Domain/
+│   ├── ShopxBase.Infrastucture/
+│   ├── Database/
+│   ├── ShopxBase.slnx
 │   ├── global.json
-│   └── .env                           # Environment variables (secrets, DB config)
-│
-├── frontend/                          # Next.js Frontend (Placeholder)
-│
-└── README.md                          # This file
+│   └── .env
+├── frontend/
+│   ├── app/
+│   ├── components/
+│   ├── contexts/
+│   ├── lib/
+│   ├── public/
+│   └── .env
+└── README.md
 ```
 
-## 📋 Backend Project Structure
+## Environment Configuration
 
-For detailed backend architecture and features, see `backend/` directory.
+### Backend (.env)
 
-**Layers:**
+Create backend/.env from backend/.env.example and fill the values:
 
-- **Domain** - Entities, Enums, Exceptions, Interfaces
-- **Application** - DTOs, CQRS Commands/Queries, Handlers, Validators, Mappings
-- **Infrastructure** - Data Access, EF Core DbContext, Repositories, Migrations
-- **API** - Controllers, Middleware, Dependency Injection
-  │
-  ├── ShopxBase.Api/ # Tầng Presentation (API)
-  │ ├── Controllers/ # API Controllers
-  │ │ ├── ProductsController.cs # Products API endpoints
-  │ │ └── OrdersController.cs # Orders API endpoints
-  │ ├── Models/ # Request/Response models
-  │ │ └── ApiModels.cs # API response wrappers
-  │ ├── Program.cs # Application startup & DI configuration
-  │ ├── appsettings.json # Configuration
-  │ └── appsettings.Development.json # Development configuration
-  │
-  ├── Shopping.slnx # Solution file
-  ├── global.json # SDK configuration
-  └── README.md # This file
+- SUPABASE_HOST
+- SUPABASE_PORT
+- SUPABASE_USER
+- SUPABASE_DATABASE
+- SUPABASE_PASSWORD
+- SUPABASE_URL
+- SUPABASE_ANON_KEY
+- SUPABASE_JWT_SECRET
+- SUPABASE_SERVICE_ROLE_KEY
+- JWT_SECRET
+- JWT_ISSUER
+- JWT_AUDIENCE
+- EMAIL_HOST
+- EMAIL_PORT
+- EMAIL_MAIL
+- EMAIL_PASSWORD
+- EMAIL_DISPLAY_NAME
+- MOMO_PARTNER_CODE
+- MOMO_ACCESS_KEY
+- MOMO_SECRET_KEY
 
-````
+### Frontend (.env)
 
-## 🏗️ Kiến Trúc Clean Architecture
+Create frontend/.env with:
 
-### Domain Layer (ShopxBase.Domain)
+```
+NEXT_PUBLIC_API_URL=http://localhost:5266/api
+```
 
-- **Mục đích**: Chứa business logic, rules, entities, exceptions
-- **Không phụ thuộc vào**: Application, Infrastructure, API
-- **Chứa**: Entities, Enums, Interfaces (IRepository, IUnitOfWork), Exceptions
+## Run Locally
 
-### Application Layer (ShopxBase.Application)
-
-- **Mục đích**: Chứa use cases, DTOs, service interfaces
-- **Phụ thuộc vào**: Domain Layer
-- **Chứa**: DTOs, Service Interfaces, Service Implementations, MediatR handlers
-
-### Infrastructure Layer (ShopxBase.Infrastructure)
-
-- **Mục đích**: Implement data access, external services
-- **Phụ thuộc vào**: Domain, Application
-- **Chứa**: DbContext, Repositories, Unit of Work, External Services
-
-### Presentation Layer (ShopxBase.Api)
-
-- **Mục đích**: API endpoints, HTTP handling
-- **Phụ thuộc vào**: Application, Infrastructure
-- **Chứa**: Controllers, Models, Program.cs (DI configuration)
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- .NET 10.0 SDK
-- SQL Server (LocalDB or Express)
-
-### Setup
-
-1. **Restore NuGet packages**:
+### Backend
 
 ```bash
-cd d:\Shop_TTS_V1
-dotnet restore
-````
+dotnet restore backend/ShopxBase.slnx
+dotnet run --project backend/ShopxBase.Api/ShopxBase.Api.csproj
+```
 
-2. **Build solution**:
+Backend endpoints:
+
+- API base: http://localhost:5266
+- Swagger: http://localhost:5266/swagger
+- Health: http://localhost:5266/health
+
+### Frontend
 
 ```bash
-dotnet build Shopping.slnx
+cd frontend
+npm install
+npm run dev
 ```
 
-3. **Create database**:
+Frontend dev URL: http://localhost:3000
+
+## Build
 
 ```bash
-cd ShopxBase.Api/ShopxBase.Api
-dotnet ef database update
+dotnet build backend/ShopxBase.slnx
+cd frontend
+npm run build
 ```
 
-4. **Run application**:
+## Common Issues
 
-```bash
-dotnet run
-```
+- Supabase paused: resume the project in Supabase dashboard
+- Port conflict: stop the process using port 3000/5266 and restart
+- CORS error: ensure backend allows the frontend origin
+- Next dev cache error: delete frontend/.next and restart dev server
 
-API sẽ chạy tại: `https://localhost:5001` (hoặc port khác)
+## Notes for Thesis
 
-## 📚 API Endpoints
-
-### Products
-
-- `GET /api/products` - Lấy tất cả sản phẩm
-- `GET /api/products/{id}` - Lấy sản phẩm theo ID
-- `POST /api/products` - Tạo sản phẩm mới
-- `PUT /api/products/{id}` - Cập nhật sản phẩm
-- `DELETE /api/products/{id}` - Xóa sản phẩm
-- `GET /api/products/category/{category}` - Lấy sản phẩm theo category
-
-### Orders
-
-- `GET /api/orders` - Lấy tất cả đơn hàng
-- `GET /api/orders/{id}` - Lấy đơn hàng theo ID
-- `GET /api/orders/user/{userId}` - Lấy đơn hàng của user
-- `POST /api/orders` - Tạo đơn hàng mới
-- `PUT /api/orders/{id}/status` - Cập nhật trạng thái đơn hàng
-- `DELETE /api/orders/{id}/cancel` - Hủy đơn hàng
-- `GET /api/orders/user/{userId}/count` - Đếm đơn hàng của user
-
-## 🔧 Configuration
-
-### Connection String
-
-Edit `appsettings.json` để cấu hình connection string:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=ShoppingDB;Trusted_Connection=true;"
-  }
-}
-```
-
-### Dependency Injection
-
-Tất cả dependencies được cấu hình trong `Program.cs`:
-
-```csharp
-// Services
-builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
-
-// Infrastructure
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-```
-
-## 📦 NuGet Packages
-
-- **Entity Framework Core 9.0.0** - ORM
-- **Swashbuckle.AspNetCore 6.4.0** - Swagger/OpenAPI
-- **Microsoft.AspNetCore.App** - ASP.NET Core
-
-## 🔐 Security Considerations
-
-- Thêm authentication/authorization
-- Validate input data
-- Implement error handling
-- Add CORS configuration
-- Use HTTPS in production
-
-## 📝 Next Steps
-
-1. **Add Authentication**: Implement JWT authentication
-2. **Add Validation**: Use FluentValidation
-3. **Add Logging**: Configure Serilog
-4. **Add Unit Tests**: Create xUnit tests
-5. **Add Migrations**: Setup EF Core migrations
-6. **Implement Caching**: Add Redis caching
-7. **Add API Documentation**: Enhance Swagger docs
-
-## 📄 License
-
-Dự án này là một mẫu học tập cho Clean Architecture trong .NET.
-
-## 👨‍💻 Author
-
-Tạo bằng terminal với `dotnet new` command và .NET 10.0
-
----
-
-**Happy Coding!** 🎉
+- The architecture is structured to separate business logic from infrastructure and UI
+- CQRS simplifies feature maintenance and testing
+- The project can be demonstrated with Swagger and the frontend UI
