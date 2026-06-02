@@ -43,7 +43,11 @@ export default function SellerOrdersPage() {
     };
 
     useEffect(() => {
-        loadOrders();
+        const timer = window.setTimeout(() => {
+            void loadOrders();
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, [page, statusFilter, searchQuery]);
 
     // Handlers

@@ -27,8 +27,11 @@ export default function SellerLayout({ children }: { children: ReactNode }) {
         // Chưa có role Seller → thử refresh 1 lần từ DB
         if (!isSeller && !hasRefreshedRoles.current) {
             hasRefreshedRoles.current = true;
-            setIsRefreshingRoles(true);
-            refreshUserRoles().finally(() => setIsRefreshingRoles(false));
+            const timer = window.setTimeout(() => setIsRefreshingRoles(true), 0);
+            refreshUserRoles().finally(() => {
+                window.clearTimeout(timer);
+                setIsRefreshingRoles(false);
+            });
             return;
         }
 

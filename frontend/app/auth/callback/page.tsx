@@ -57,10 +57,10 @@ export default function AuthCallbackPage() {
                 } else {
                     throw new Error('Không thể xác thực người dùng');
                 }
-            } catch (err: any) {
-                console.error('OAuth callback error:', err);
+            } catch (error: unknown) {
+                console.error('OAuth callback error:', error);
                 setStatus('error');
-                setErrorMsg(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+                setErrorMsg(error instanceof Error ? error.message : 'Đăng nhập thất bại. Vui lòng thử lại.');
             }
         };
 

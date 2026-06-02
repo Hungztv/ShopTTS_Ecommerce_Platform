@@ -89,9 +89,10 @@ export default function CreateCategoryPage() {
         try {
             await categoriesService.create(formData);
             router.push('/admin/categories');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error creating category:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi tạo danh mục!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi tạo danh mục!');
         } finally {
             setLoading(false);
         }

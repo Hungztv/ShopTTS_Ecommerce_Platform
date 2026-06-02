@@ -3,6 +3,16 @@ import type { SignUpRequest, SignInRequest, AuthResponse, User } from '@/types/a
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+type ApiError = {
+    response?: {
+        data?: {
+            message?: string;
+            error?: string;
+        };
+        status?: number;
+    };
+};
+
 // Đăng Kí
 export async function signUp(data: SignUpRequest): Promise<AuthResponse> {
     try {
@@ -14,11 +24,12 @@ export async function signUp(data: SignUpRequest): Promise<AuthResponse> {
             phone: data.phone,
         });
         return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const apiError = error as ApiError;
         return {
             success: false,
-            message: error.response?.data?.message || 'Đăng ký thất bại',
-            error: error.response?.data?.error,
+            message: apiError.response?.data?.message || 'Đăng ký thất bại',
+            error: apiError.response?.data?.error,
         };
     }
 }
@@ -32,11 +43,12 @@ export async function signIn(data: SignInRequest): Promise<AuthResponse> {
             password: data.password,
         });
         return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const apiError = error as ApiError;
         return {
             success: false,
-            message: error.response?.data?.message || 'Đăng nhập thất bại',
-            error: error.response?.data?.error,
+            message: apiError.response?.data?.message || 'Đăng nhập thất bại',
+            error: apiError.response?.data?.error,
         };
     }
 }
@@ -49,7 +61,7 @@ export async function getMe(accessToken: string): Promise<{ success: boolean; us
             headers: { Authorization: `Bearer ${accessToken}` },
         });
         return response.data;
-    } catch (error: any) {
+    } catch {
         return { success: false };
     }
 }
@@ -62,7 +74,7 @@ export async function refreshToken(refreshToken: string): Promise<AuthResponse> 
             refreshToken,
         });
         return response.data;
-    } catch (error: any) {
+    } catch {
         return { success: false, error: 'refresh_failed' };
     }
 }
@@ -102,11 +114,12 @@ export async function updatePassword(newPassword: string, accessToken: string): 
             { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const apiError = error as ApiError;
         return {
             success: false,
-            message: error.response?.data?.message || 'Đổi mật khẩu thất bại',
-            status: error.response?.status,
+            message: apiError.response?.data?.message || 'Đổi mật khẩu thất bại',
+            status: apiError.response?.status,
         };
     }
 }
@@ -118,10 +131,11 @@ export async function getOAuthUrl(provider: string, redirectUrl?: string): Promi
         if (redirectUrl) params.set('redirectUrl', redirectUrl);
         const response = await axios.get(`${API_URL}/SupabaseAuth/oauth/${provider}?${params.toString()}`);
         return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const apiError = error as ApiError;
         return {
             success: false,
-            message: error.response?.data?.message || `OAuth ${provider} thất bại`,
+            message: apiError.response?.data?.message || `OAuth ${provider} thất bại`,
         };
     }
 }
@@ -132,7 +146,7 @@ export async function getMeWithRoles(accessToken: string): Promise<{ success: bo
             headers: { Authorization: `Bearer ${accessToken}` },
         });
         return response.data;
-    } catch (error: any) {
+    } catch {
         return { success: false };
     }
 }

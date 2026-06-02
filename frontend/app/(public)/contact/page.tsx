@@ -31,6 +31,14 @@ const contactSchema = z.object({
 
 type ContactFormData = z.infer<typeof contactSchema>;
 
+type ApiError = {
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
+};
+
 export default function ContactPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -66,9 +74,10 @@ export default function ContactPage() {
                 setSubmitStatus('error');
                 setErrorMessage(response.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as ApiError;
             setSubmitStatus('error');
-            setErrorMessage(error?.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+            setErrorMessage(apiError.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
         } finally {
             setIsSubmitting(false);
         }

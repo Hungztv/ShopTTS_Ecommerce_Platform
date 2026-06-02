@@ -57,9 +57,10 @@ export default function OrderDetailPage() {
         try {
             await ordersService.updateStatus(id, newStatus);
             loadOrder();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating status:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái!');
         } finally {
             setUpdating(false);
         }
@@ -72,9 +73,10 @@ export default function OrderDetailPage() {
         try {
             await ordersService.updateStatus(id, 4);
             loadOrder();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error cancelling order:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi hủy đơn hàng!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi hủy đơn hàng!');
         } finally {
             setUpdating(false);
         }

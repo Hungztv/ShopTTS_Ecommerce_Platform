@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { ElementType } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     X, CheckCircle, XCircle, Loader2, Building2, FileText,
@@ -48,8 +49,9 @@ export default function ReviewDialog({
             toast.success('Đã duyệt đăng ký thành công!');
             onSuccess();
             handleClose();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
+            toast.error(apiError.response?.data?.message || 'Có lỗi xảy ra');
         } finally {
             setIsApproving(false);
         }
@@ -62,8 +64,9 @@ export default function ReviewDialog({
             toast.success('Đã từ chối đăng ký');
             onSuccess();
             handleClose();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
+            toast.error(apiError.response?.data?.message || 'Có lỗi xảy ra');
         } finally {
             setIsRejecting(false);
         }
@@ -220,7 +223,7 @@ export default function ReviewDialog({
 
 // ========== HELPERS ==========
 
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoRow({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
     return (
         <div className="flex items-start gap-3">
             <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />

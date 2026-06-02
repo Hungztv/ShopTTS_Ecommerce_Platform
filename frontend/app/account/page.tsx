@@ -67,10 +67,11 @@ export default function AccountPage() {
 
             await usersService.updateMe(updateData);
             setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             setMessage({
                 type: 'error',
-                text: error?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại!'
+                text: apiError.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại!'
             });
         } finally {
             setSaving(false);

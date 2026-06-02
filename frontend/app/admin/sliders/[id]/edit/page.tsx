@@ -115,9 +115,10 @@ export default function EditSliderPage() {
             };
             await slidersService.update(id, updateData);
             router.push('/admin/sliders');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating slider:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật slider!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật slider!');
         } finally {
             setSaving(false);
         }

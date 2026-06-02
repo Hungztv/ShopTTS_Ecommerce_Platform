@@ -103,9 +103,10 @@ export default function CreateCouponPage() {
         try {
             await couponsService.create(formData);
             router.push('/admin/coupons');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error creating coupon:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi tạo mã giảm giá!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi tạo mã giảm giá!');
         } finally {
             setLoading(false);
         }

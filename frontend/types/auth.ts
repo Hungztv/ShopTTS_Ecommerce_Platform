@@ -11,7 +11,7 @@ export interface User {
     metadata?: {
         full_name?: string;
         phone?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 // Request đăng ký - ĐÚNG VỚI BACKEND

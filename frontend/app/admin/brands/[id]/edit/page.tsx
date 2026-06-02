@@ -138,9 +138,10 @@ export default function EditBrandPage() {
             };
             await brandsService.update(id, updateData);
             router.push('/admin/brands');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating brand:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật thương hiệu!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật thương hiệu!');
         } finally {
             setSaving(false);
         }

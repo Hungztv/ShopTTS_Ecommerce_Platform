@@ -163,9 +163,10 @@ export default function CreateProductPage() {
         try {
             await productsService.create(formData);
             router.push('/admin/products');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error creating product:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi tạo sản phẩm!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi tạo sản phẩm!');
         } finally {
             setLoading(false);
         }

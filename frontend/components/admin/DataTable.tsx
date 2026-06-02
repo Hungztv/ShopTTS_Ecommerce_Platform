@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
     ChevronLeft,
     ChevronRight,
@@ -99,7 +99,7 @@ export default function DataTable<T>({
                                     >
                                         {col.render
                                             ? col.render(item)
-                                            : (item as any)[col.key]}
+                                            : (item as Record<string, unknown>)[col.key] as ReactNode}
                                     </td>
                                 ))}
                             </tr>

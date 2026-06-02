@@ -188,9 +188,10 @@ export default function EditProductPage() {
         try {
             await productsService.update(id, formData);
             router.push(`/admin/products/${id}`);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating product:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật sản phẩm!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật sản phẩm!');
         } finally {
             setSaving(false);
         }

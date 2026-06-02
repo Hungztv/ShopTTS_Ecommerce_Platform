@@ -294,7 +294,7 @@ export default function ProductDetailPage() {
                         ].map((tab) => (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveTab(tab.key as any)}
+                                onClick={() => setActiveTab(tab.key as 'description' | 'specs' | 'reviews')}
                                 className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${activeTab === tab.key
                                     ? 'text-violet-600 border-b-2 border-violet-600 bg-violet-50 dark:bg-violet-900/20'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'

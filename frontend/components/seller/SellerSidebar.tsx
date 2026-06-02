@@ -29,7 +29,11 @@ export default function SellerSidebar() {
     const [isDark, setIsDark] = useState(false);
 
     useEffect(() => {
-        setIsDark(document.documentElement.classList.contains('dark'));
+        const timer = window.setTimeout(() => {
+            setIsDark(document.documentElement.classList.contains('dark'));
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, []);
 
     const toggleTheme = () => {

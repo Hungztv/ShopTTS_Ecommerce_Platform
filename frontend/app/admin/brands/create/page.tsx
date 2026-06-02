@@ -98,9 +98,10 @@ export default function CreateBrandPage() {
         try {
             await brandsService.create(formData);
             router.push('/admin/brands');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error creating brand:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi tạo thương hiệu!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi tạo thương hiệu!');
         } finally {
             setLoading(false);
         }

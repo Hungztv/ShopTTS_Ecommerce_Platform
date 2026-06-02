@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Package, Eye, ChevronDown, Truck, CheckCircle, XCircle, Clock, CreditCard } from 'lucide-react';
+import type { ElementType } from 'react';
 import api, { ApiResponse, PaginatedResponse } from '@/lib/services/admin/api';
 import { Order } from '@/lib/services/admin/dashboard-service';
 import { formatPrice } from '@/lib/utils/product-mapper';
 
-const statusConfig: Record<number, { label: string; color: string; icon: any }> = {
+const statusConfig: Record<number, { label: string; color: string; icon: ElementType }> = {
     0: { label: 'Chờ xác nhận', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
     1: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-700', icon: CheckCircle },
     2: { label: 'Đang giao', color: 'bg-purple-100 text-purple-700', icon: Truck },
@@ -21,7 +22,11 @@ export default function OrdersPage() {
     const [statusFilter, setStatusFilter] = useState<number | 'all'>('all');
 
     useEffect(() => {
-        loadOrders();
+        const timer = window.setTimeout(() => {
+            void loadOrders();
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, [statusFilter]);
 
     const loadOrders = async () => {

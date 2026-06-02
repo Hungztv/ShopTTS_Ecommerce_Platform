@@ -183,9 +183,10 @@ export default function ProductsPage() {
             }
             setIsFormOpen(false);
             loadProducts();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string; title?: string } } };
             console.error('Error saving product:', error);
-            const message = error?.response?.data?.message || error?.response?.data?.title || 'Có lỗi xảy ra!';
+            const message = apiError.response?.data?.message || apiError.response?.data?.title || 'Có lỗi xảy ra!';
             alert(message);
         } finally {
             setFormLoading(false);

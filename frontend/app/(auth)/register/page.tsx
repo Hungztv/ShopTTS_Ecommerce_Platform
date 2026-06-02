@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, ShoppingBag, Gift, Zap, Bell, ChevronLeft, Star, Heart } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, ShoppingBag, Gift, Zap, Bell, ChevronLeft, Heart } from 'lucide-react';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -21,15 +21,19 @@ export default function RegisterPage() {
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setMounted(true), 0);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const handleOAuthLogin = async (provider: string) => {
         try {
             setError('');
             setOauthLoading(provider);
             await signInWithOAuth(provider);
-        } catch (err: any) {
-            setError(err.message || `Đăng ký với ${provider} thất bại`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : `Đăng ký với ${provider} thất bại`;
+            setError(message);
             setOauthLoading(null);
         }
     };

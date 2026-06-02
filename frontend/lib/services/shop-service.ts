@@ -14,6 +14,12 @@ interface ApiResponse<T> {
   data: T;
 }
 
+type ApiError = {
+  response?: {
+    status?: number;
+  };
+};
+
 // ==================== BUSINESS REGISTRATION ====================
 
 export const shopService = {
@@ -26,8 +32,9 @@ export const shopService = {
         "/BusinessRegistrations/me"
       );
       return res.data.data;
-    } catch (err: any) {
-      if (err.response?.status === 404) return null;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      if (apiError.response?.status === 404) return null;
       throw err;
     }
   },
@@ -86,8 +93,9 @@ export const shopService = {
     try {
       const res = await api.get<ApiResponse<ShopDto>>("/Shops/me");
       return res.data.data;
-    } catch (err: any) {
-      if (err.response?.status === 404) return null;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      if (apiError.response?.status === 404) return null;
       throw err;
     }
   },

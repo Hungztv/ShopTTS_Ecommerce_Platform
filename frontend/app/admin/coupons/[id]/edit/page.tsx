@@ -156,9 +156,10 @@ export default function EditCouponPage() {
             };
             await couponsService.update(id, updateData);
             router.push('/admin/coupons');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating coupon:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật mã giảm giá!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật mã giảm giá!');
         } finally {
             setSaving(false);
         }

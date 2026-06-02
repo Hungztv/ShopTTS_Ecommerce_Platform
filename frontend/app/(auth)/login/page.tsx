@@ -17,15 +17,19 @@ export default function LoginPage() {
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setMounted(true), 0);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const handleOAuthLogin = async (provider: string) => {
         try {
             setError('');
             setOauthLoading(provider);
             await signInWithOAuth(provider);
-        } catch (err: any) {
-            setError(err.message || `Đăng nhập với ${provider} thất bại`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : `Đăng nhập với ${provider} thất bại`;
+            setError(message);
             setOauthLoading(null);
         }
     };

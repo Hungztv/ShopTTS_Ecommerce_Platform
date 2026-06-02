@@ -20,6 +20,12 @@ export interface AppNotification {
     link?: string;
 }
 
+type OrderSummary = {
+    id: number;
+    orderCode: string;
+    status: number;
+};
+
 interface NotificationContextType {
     notifications: AppNotification[];
     unreadCount: number;
@@ -163,8 +169,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         isPollingRef.current = true;
 
         try {
-            const res = await api.get<any>('/Orders?pageSize=20&sortBy=createdAt&sortDesc=true');
-            const orders = res.data?.data?.items || res.data?.items || [];
+            const res = await api.get<{ data?: { items?: OrderSummary[] }; items?: OrderSummary[] }>('/Orders?pageSize=20&sortBy=createdAt&sortDesc=true');
+            const orders: OrderSummary[] = res.data?.data?.items || res.data?.items || [];
 
             if (!orders.length) return;
 

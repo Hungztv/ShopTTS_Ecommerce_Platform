@@ -129,9 +129,10 @@ export default function EditCategoryPage() {
             };
             await categoriesService.update(id, updateData);
             router.push('/admin/categories');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error updating category:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật danh mục!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật danh mục!');
         } finally {
             setSaving(false);
         }

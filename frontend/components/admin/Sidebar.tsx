@@ -45,7 +45,11 @@ export default function Sidebar() {
 
     useEffect(() => {
         // Check dark mode
-        setIsDark(document.documentElement.classList.contains('dark'));
+        const timer = window.setTimeout(() => {
+            setIsDark(document.documentElement.classList.contains('dark'));
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, []);
 
     const toggleTheme = () => {

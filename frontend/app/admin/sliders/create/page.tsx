@@ -78,9 +78,10 @@ export default function CreateSliderPage() {
         try {
             await slidersService.create(formData);
             router.push('/admin/sliders');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
             console.error('Error creating slider:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra khi tạo slider!');
+            alert(apiError.response?.data?.message || 'Có lỗi xảy ra khi tạo slider!');
         } finally {
             setLoading(false);
         }

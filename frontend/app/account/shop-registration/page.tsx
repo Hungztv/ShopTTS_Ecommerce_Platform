@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors, type UseFormHandleSubmit, type UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ComponentPropsWithoutRef, ElementType } from 'react';
 import {
     Store, Clock, XCircle, CheckCircle, Loader2, Send, RefreshCw,
     Building2, FileText, User, Mail, Phone, MapPin, AlertTriangle
@@ -62,8 +63,9 @@ export default function ShopRegistrationPage() {
             setRegistration(result);
             toast.success('Gửi đăng ký thành công! Vui lòng chờ admin duyệt.');
             reset();
-        } catch (err: any) {
-            const msg = err.response?.data?.message || 'Có lỗi xảy ra';
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
+            const msg = apiError.response?.data?.message || 'Có lỗi xảy ra';
             toast.error(msg);
         } finally {
             setIsSubmitting(false);
@@ -187,7 +189,7 @@ export default function ShopRegistrationPage() {
 
 // ==================== SUB COMPONENTS ====================
 
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoRow({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
     return (
         <div className="flex items-center gap-3">
             <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -205,10 +207,10 @@ function RegistrationForm({
     isSubmitting,
     isResubmit = false,
 }: {
-    register: any;
-    errors: any;
-    handleSubmit: any;
-    onSubmit: any;
+    register: UseFormRegister<CreateRegistrationFormValues>;
+    errors: FieldErrors<CreateRegistrationFormValues>;
+    handleSubmit: UseFormHandleSubmit<CreateRegistrationFormValues>;
+    onSubmit: (values: CreateRegistrationFormValues) => Promise<void>;
     isSubmitting: boolean;
     isResubmit?: boolean;
 }) {
@@ -284,16 +286,15 @@ function RegistrationForm({
     );
 }
 
-import { forwardRef } from 'react';
-
-const FormField = forwardRef<HTMLInputElement, {
+type FormFieldProps = ComponentPropsWithoutRef<'input'> & {
     label: string;
-    icon: any;
+    icon: ElementType;
     error?: string;
     type?: string;
     placeholder?: string;
-    [key: string]: any;
-}>(({ label, icon: Icon, error, type = 'text', placeholder, ...props }, ref) => (
+};
+
+const FormField = forwardRef<HTMLInputElement, FormFieldProps>(({ label, icon: Icon, error, type = 'text', placeholder, ...props }, ref) => (
     <div>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
         <div className="relative">

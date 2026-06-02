@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ElementType } from 'react';
 import {
     Store, Loader2, Save, Image, FileText, Link2,
     CheckCircle, AlertCircle, Ban
@@ -14,7 +15,7 @@ import type { ShopDto } from '@/types/shop';
 import { ShopStatus } from '@/types/shop';
 import { updateShopSchema, type UpdateShopFormValues } from '@/schemas/shop';
 
-const statusConfig: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+const statusConfig: Record<string, { label: string; icon: ElementType; color: string; bg: string }> = {
     Active: { label: 'Đang hoạt động', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     Inactive: { label: 'Chưa kích hoạt', icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
     Suspended: { label: 'Bị tạm ngưng', icon: Ban, color: 'text-red-600', bg: 'bg-red-50' },
@@ -81,8 +82,9 @@ export default function MyShopPage() {
                 coverUrl: updated.coverUrl || '',
             });
             toast.success('Cập nhật shop thành công!');
-        } catch (err: any) {
-            const msg = err.response?.data?.message || 'Có lỗi xảy ra';
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } } };
+            const msg = apiError.response?.data?.message || 'Có lỗi xảy ra';
             toast.error(msg);
         } finally {
             setIsSaving(false);
