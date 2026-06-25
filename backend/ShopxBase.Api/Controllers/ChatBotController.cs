@@ -1035,6 +1035,21 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
 [suggest]Gợi ý 2[/suggest]
 [suggest]Gợi ý 3[/suggest]
 
+🧾 OPTIONAL STRUCTURED OUTPUT (nếu có thể):
+- Bạn có thể đính kèm một khối JSON cuối phản hồi, bao bọc trong thẻ <response_json> ... </response_json>.
+- Ví dụ schema (không bắt buộc, nhưng nếu có hãy tuân theo):
+```
+<response_json>
+{{
+    ""reply"": ""(nội dung trả lời, Markdown)"",
+    ""suggestions"": [""Gợi ý 1"", ""Gợi ý 2""],
+    ""actions"": [{{ ""type"": ""view"", ""productId"": 123 }}, {{ ""type"": ""add_to_cart"", ""productId"": 456 }}],
+    ""citations"": [{{ ""source"": ""FAQ"", ""title"": ""Chính sách đổi trả"", ""url"": ""https://..."" }}]
+}}
+</response_json>
+```
+- Nếu JSON được cung cấp, server sẽ ưu tiên trường `reply` làm nội dung clean và sẽ đọc `suggestions`/`actions` để hiển thị nút hoặc thẻ sản phẩm.
+
 📞 HOTLINE: 1900-xxxx | 📧 support@shoptts.vn | ⏰ 8:00-22:00
 {productContext}{categoryInfo}{extra}";
 
@@ -1065,7 +1080,50 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
             return "";
         }, RegexOptions.Singleline);
 
-        return (clean.TrimEnd(), suggestions.ToArray());
+        // Try to extract optional structured JSON wrapped in <response_json>...</response_json>
+        try
+        {
+            var openTag = "<response_json>";
+            var closeTag = "</response_json>";
+            var idxOpen = clean.IndexOf(openTag, StringComparison.OrdinalIgnoreCase);
+            var idxClose = clean.IndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
+            if (idxOpen >= 0 && idxClose > idxOpen)
+            {
+                var jsonText = clean.Substring(idxOpen + openTag.Length, idxClose - (idxOpen + openTag.Length)).Trim();
+                // Remove the JSON block from clean reply
+                clean = (clean.Substring(0, idxOpen) + clean.Substring(idxClose + closeTag.Length)).Trim();
+
+                if (!string.IsNullOrEmpty(jsonText))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(jsonText);
+                        var root = doc.RootElement;
+                        // If JSON contains 'reply', prefer it as clean reply
+                        if (root.TryGetProperty("reply", out var replyProp) && replyProp.ValueKind == JsonValueKind.String)
+                        {
+                            clean = replyProp.GetString() ?? clean;
+                        }
+                        // Merge suggestions from JSON
+                        if (root.TryGetProperty("suggestions", out var suggProp) && suggProp.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var s in suggProp.EnumerateArray())
+                            {
+                                if (s.ValueKind == JsonValueKind.String)
+                                {
+                                    var v = s.GetString();
+                                    if (!string.IsNullOrWhiteSpace(v)) suggestions.Add(v.Trim());
+                                }
+                            }
+                        }
+                    }
+                    catch { /* ignore parse errors */ }
+                }
+            }
+        }
+        catch { /* ignore */ }
+
+        return (clean.TrimEnd(), suggestions.Distinct().ToArray());
     }
 
     // ── GROQ API call (with fallback models on rate limit) ──

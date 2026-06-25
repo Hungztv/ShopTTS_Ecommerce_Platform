@@ -517,6 +517,8 @@ export default function ChatBotWidget() {
     let fullContent = "";
     let products: ChatProduct[] = [];
     let suggestions: string[] = [];
+    let actions: any[] = [];
+    let citations: any[] = [];
 
     try {
       await streamChatMessageV2(
@@ -559,6 +561,28 @@ export default function ChatBotWidget() {
               return updated;
             });
           },
+          onActions: (a) => {
+            actions = a;
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = { ...last, actions: a };
+              }
+              return updated;
+            });
+          },
+          onCitations: (c) => {
+            citations = c;
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = { ...last, citations: c };
+              }
+              return updated;
+            });
+          },
           onIntent: () => {
             // Could show intent indicator
           },
@@ -586,6 +610,8 @@ export default function ChatBotWidget() {
                   isStreaming: false,
                   products,
                   suggestions,
+                  actions,
+                  citations,
                 };
               }
               return updated;
@@ -681,6 +707,8 @@ export default function ChatBotWidget() {
           let fullContent = "";
           let products: ChatProduct[] = [];
           let suggestions: string[] = [];
+          let actions: any[] = [];
+          let citations: any[] = [];
 
           try {
             await streamChatMessageV2(
@@ -720,6 +748,28 @@ export default function ChatBotWidget() {
                     return updated;
                   });
                 },
+                onActions: (a) => {
+                  actions = a;
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const last = updated[updated.length - 1];
+                    if (last.role === "assistant") {
+                      updated[updated.length - 1] = { ...last, actions: a };
+                    }
+                    return updated;
+                  });
+                },
+                onCitations: (c) => {
+                  citations = c;
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const last = updated[updated.length - 1];
+                    if (last.role === "assistant") {
+                      updated[updated.length - 1] = { ...last, citations: c };
+                    }
+                    return updated;
+                  });
+                },
                 onIntent: () => {},
                 onCleanReply: (reply) => {
                   fullContent = reply;
@@ -742,6 +792,8 @@ export default function ChatBotWidget() {
                         isStreaming: false,
                         products,
                         suggestions,
+                        actions,
+                        citations,
                       };
                     }
                     return updated;
@@ -989,6 +1041,71 @@ export default function ChatBotWidget() {
                         onSelect={handleSuggestionClick}
                       />
                     )}
+
+                  {/* Actions (from structured JSON) */}
+                  {msg.actions && msg.actions.length > 0 && !msg.isStreaming && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {msg.actions.map((act, i) => {
+                        const key = `action-${i}`;
+                        if (act?.type === 'add_to_cart' && act.productId) {
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => handleAddToCart(act.productId)}
+                              className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-full hover:bg-green-700 transition-all"
+                            >
+                              Thêm vào giỏ
+                            </button>
+                          );
+                        }
+                        if (act?.type === 'view' && act.productId) {
+                          return (
+                            <a
+                              key={key}
+                              href={`/products/${act.productId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-all"
+                            >
+                              Xem chi tiết
+                            </a>
+                          );
+                        }
+                        if (act?.url) {
+                          return (
+                            <a
+                              key={key}
+                              href={act.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs bg-gray-50 text-gray-700 px-3 py-1.5 rounded-full border border-gray-100 hover:bg-gray-100 transition-all"
+                            >
+                              {act.label || 'Mở liên kết'}
+                            </a>
+                          );
+                        }
+                        return (
+                          <button key={key} className="text-xs bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full">
+                            {act?.label || 'Hành động'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Citations */}
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                      {msg.citations.map((c, i) => (
+                        <div key={i}>
+                          <a href={c.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                            {c.title || c.source || c.url}
+                          </a>
+                          {c.source && <span className="ml-2 text-gray-400">({c.source})</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Timestamp */}
                   <p

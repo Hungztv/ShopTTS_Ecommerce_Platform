@@ -27,6 +27,8 @@ export interface ChatMessage {
     content: string;
     products?: ChatProduct[];
     suggestions?: string[];
+    actions?: any[];
+    citations?: any[];
     intent?: string;
     timestamp: Date;
     isStreaming?: boolean;
@@ -95,6 +97,8 @@ export interface StreamCallbacks {
     onSuggestions: (suggestions: string[]) => void;
     onIntent: (intent: string) => void;
     onCleanReply: (reply: string) => void;
+    onActions?: (actions: any[]) => void;
+    onCitations?: (citations: any[]) => void;
     onDone: () => void;
     onError: (message: string) => void;
 }
@@ -252,6 +256,12 @@ function processSSEvent(event: string, data: string, cb: StreamCallbacks) {
             break;
         case 'suggestions':
             try { cb.onSuggestions(JSON.parse(data)); } catch {}
+            break;
+        case 'actions':
+            try { cb.onActions && cb.onActions(JSON.parse(data)); } catch {}
+            break;
+        case 'citations':
+            try { cb.onCitations && cb.onCitations(JSON.parse(data)); } catch {}
             break;
         case 'intent':
             cb.onIntent(data);
