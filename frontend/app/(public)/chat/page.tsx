@@ -1,30 +1,22 @@
+'use client';
+
 import React, { Suspense } from 'react';
 import { SignalRProvider } from '@/contexts/SignalRContext';
 import ChatBox from '@/components/chat/ChatBox';
-
-export const metadata = {
-    title: 'Phòng Chat | Shop_TTS_v1',
-    description: 'Thử nghiệm tính năng chat realtime với SignalR',
-};
+import '@/components/chat/chat.css';
 
 export default function ChatPage() {
     return (
-        <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center mb-8">
-                <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                    Thử nghiệm Realtime Chat
-                </h1>
-                <p className="mt-4 text-lg text-gray-500">
-                    Mở trang này trên 2 trình duyệt hoặc 2 tab khác nhau để thử nghiệm tính năng nhắn tin thời gian thực.
-                </p>
-            </div>
-            
-            {/* 
-              Wrap ChatBox bên trong SignalRProvider 
-              chỉ ở trang này để không ảnh hưởng toàn app
-            */}
+        <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-slate-50 via-white to-violet-50/30 dark:from-[#0a0a12] dark:via-[#0f0e17] dark:to-[#1a1625] py-8 px-4">
             <SignalRProvider>
-                <Suspense fallback={<div>Loading chat...</div>}>
+                <Suspense fallback={
+                    <div className="flex items-center justify-center h-[60vh]">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm text-slate-400">Đang kết nối...</span>
+                        </div>
+                    </div>
+                }>
                     <ChatBox />
                 </Suspense>
             </SignalRProvider>

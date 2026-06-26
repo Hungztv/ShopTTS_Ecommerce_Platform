@@ -291,7 +291,7 @@ function SuggestionChips({
         <button
           key={i}
           onClick={() => onSelect(s)}
-          className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 hover:border-blue-200 transition-all active:scale-95 cursor-pointer"
+          className="text-xs bg-violet-50 text-violet-700 px-3 py-1.5 rounded-full border border-violet-100 hover:bg-violet-100 hover:border-violet-200 transition-all active:scale-95 cursor-pointer shadow-sm hover:shadow"
         >
           {s}
         </button>
@@ -893,45 +893,48 @@ export default function ChatBotWidget() {
       {!isOpen && (
         <button
           onClick={toggleOpen}
-          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#d946ef] text-white shadow-[0_8px_24px_rgba(139,92,246,0.4)] hover:shadow-[0_12px_28px_rgba(139,92,246,0.6)] hover:-translate-y-1 transition-all duration-300 flex items-center justify-center group"
           aria-label="Mở chatbot"
         >
-          <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
+          <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform duration-300" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse shadow-md">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
           {/* Pulse ring */}
-          <span className="absolute inset-0 rounded-full bg-blue-400 opacity-20 animate-ping" />
+          <span className="absolute inset-0 rounded-full bg-[#8b5cf6] opacity-30 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
         </button>
       )}
 
       {/* ── Chat Window ── */}
       {isOpen && (
         <div
-          className={`${widgetClasses} flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden`}
+          className={`${widgetClasses} flex flex-col bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_20px_40px_-10px_rgba(139,92,246,0.15),0_0_0_1px_rgba(139,92,246,0.05)] border border-white/50 overflow-hidden`}
           style={{
-            animation: isFullscreen ? undefined : "slideUp 0.3s ease-out",
+            animation: isFullscreen ? undefined : "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
           {/* ── Header ── */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+          <div className="bg-gradient-to-r from-[#8b5cf6]/10 to-[#d946ef]/10 border-b border-[#8b5cf6]/10 px-5 py-4 flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#d946ef] flex items-center justify-center shadow-md text-white">
               <Sparkles className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm">Trợ lý ShopTTS AI</h3>
-              <p className="text-[10px] text-blue-100 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-400 rounded-full inline-block" />
-                Luôn sẵn sàng hỗ trợ
+              <h3 className="font-bold text-sm text-slate-800">Trợ lý ShopTTS AI</h3>
+              <p className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium mt-0.5">
+                <span className="relative flex w-2 h-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500"></span>
+                </span>
+                Sẵn sàng hỗ trợ
               </p>
             </div>
             <div className="flex items-center gap-1">
               {/* Sound toggle */}
               <button
                 onClick={() => setSoundEnabled(!soundEnabled)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
                 title={soundEnabled ? "Tắt âm" : "Bật âm"}
               >
                 {soundEnabled ? (
@@ -943,7 +946,7 @@ export default function ChatBotWidget() {
               {/* Fullscreen toggle */}
               <button
                 onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all hidden sm:block"
                 title={isFullscreen ? "Thu nhỏ" : "Phóng to"}
               >
                 {isFullscreen ? (
@@ -955,7 +958,7 @@ export default function ChatBotWidget() {
               {/* Clear */}
               <button
                 onClick={handleClear}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                 title="Xóa cuộc trò chuyện"
               >
                 <Trash2 className="w-4 h-4" />
@@ -966,22 +969,21 @@ export default function ChatBotWidget() {
                   setIsOpen(false);
                   setIsFullscreen(false);
                 }}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all ml-1"
                 title="Đóng"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* ── Quick Actions ── */}
-          <div className="flex gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100 overflow-x-auto shrink-0">
+          <div className="flex gap-2 px-4 py-2.5 bg-slate-50/50 backdrop-blur-md border-b border-slate-100 overflow-x-auto shrink-0 scrollbar-hide">
             {QUICK_ACTIONS.map((action, i) => (
               <button
                 key={i}
                 onClick={() => handleSuggestionClick(action.message)}
                 disabled={isLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full text-xs text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all whitespace-nowrap disabled:opacity-50 shrink-0"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white rounded-full text-xs font-medium text-slate-600 border border-slate-200 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50 hover:shadow-sm transition-all whitespace-nowrap disabled:opacity-50 shrink-0"
               >
                 <action.icon className="w-3.5 h-3.5" />
                 {action.label}
@@ -993,7 +995,7 @@ export default function ChatBotWidget() {
           <div
             ref={chatContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-3 py-3 space-y-4"
+            className="flex-1 overflow-y-auto px-4 py-5 space-y-5"
             style={{ scrollBehavior: "smooth" }}
           >
             {messages.map((msg, idx) => (
@@ -1002,20 +1004,23 @@ export default function ChatBotWidget() {
                 className={`flex ${
                   msg.role === "user" ? "justify-end" : "justify-start"
                 }`}
+                style={{
+                  animation: 'message-slide-up 0.3s ease-out forwards'
+                }}
               >
                 <div
-                  className={`max-w-[85%] ${
+                  className={`max-w-[85%] relative ${
                     msg.role === "user"
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-md px-3.5 py-2.5"
-                      : "bg-gray-50 text-gray-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 border border-gray-100"
+                      ? "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md"
+                      : "bg-white text-slate-800 rounded-2xl rounded-bl-sm px-4 py-3 border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
                   }`}
                 >
                   {/* Message content */}
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-1 prose-strong:text-gray-900 text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-headings:my-1.5 prose-strong:text-slate-900 prose-a:text-violet-600 hover:prose-a:text-violet-700 text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                       {msg.isStreaming && (
-                        <span className="inline-block w-1.5 h-4 bg-blue-500 ml-0.5 animate-pulse rounded-sm" />
+                        <span className="inline-block w-1.5 h-4 bg-violet-500 ml-1 animate-pulse rounded-full align-middle" />
                       )}
                     </div>
                   ) : (
@@ -1109,10 +1114,10 @@ export default function ChatBotWidget() {
 
                   {/* Timestamp */}
                   <p
-                    className={`text-[10px] mt-1.5 ${
+                    className={`text-[10px] mt-2 font-medium ${
                       msg.role === "user"
-                        ? "text-blue-100"
-                        : "text-gray-400"
+                        ? "text-violet-100"
+                        : "text-slate-400"
                     }`}
                   >
                     {formatTime(msg.timestamp)}
@@ -1146,15 +1151,15 @@ export default function ChatBotWidget() {
           )}
 
           {/* ── Input Area ── */}
-          <div className="border-t border-gray-100 px-3 py-2.5 bg-white shrink-0">
-            <div className="flex items-end gap-2">
+          <div className="border-t border-slate-100 p-4 bg-slate-50/50 backdrop-blur-md shrink-0">
+            <div className="flex items-end gap-2 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-50 transition-all">
               {/* Voice button */}
               <button
                 onClick={isListening ? stopVoiceInput : startVoiceInput}
-                className={`p-2 rounded-xl transition-all shrink-0 ${
+                className={`p-2 rounded-xl transition-all shrink-0 flex-none ${
                   isListening
-                    ? "bg-red-100 text-red-600 animate-pulse"
-                    : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                    ? "bg-rose-100 text-rose-600 animate-pulse"
+                    : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
                 }`}
                 title={isListening ? "Dừng ghi âm" : "Nhập bằng giọng nói"}
               >
@@ -1175,10 +1180,10 @@ export default function ChatBotWidget() {
                   placeholder={
                     isListening
                       ? "Đang nghe..."
-                      : "Nhập tin nhắn... (Enter gửi, Shift+Enter xuống dòng)"
+                      : "Hỏi ShopTTS Assistant..."
                   }
                   rows={1}
-                  className="w-full resize-none rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                  className="w-full resize-none bg-transparent border-none px-2 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 transition-all"
                   style={{ maxHeight: "120px" }}
                   disabled={isLoading}
                 />
@@ -1188,13 +1193,13 @@ export default function ChatBotWidget() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="p-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shrink-0"
+                className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white flex items-center justify-center hover:from-[#7c3aed] hover:to-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shrink-0 flex-none shadow-sm shadow-violet-200"
                 title="Gửi tin nhắn"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4 ml-0.5" />
                 )}
               </button>
             </div>
@@ -1237,6 +1242,11 @@ export default function ChatBotWidget() {
             opacity: 1;
             transform: translateY(0) scale(1);
           }
+        }
+
+        @keyframes message-slide-up {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
 
         .scrollbar-hide::-webkit-scrollbar {

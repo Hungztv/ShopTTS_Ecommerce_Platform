@@ -14,11 +14,13 @@ import AddToCartButton from '@/components/ui/AddToCartButton';
 import WishlistButton from '@/components/ui/WishlistButton';
 import CompareButton from '@/components/ui/CompareButton';
 import ProductRatings from '@/components/product/ProductRatings';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProductDetailPage() {
     const params = useParams();
     const router = useRouter();
     const slug = params.slug as string;
+    const { user } = useAuth();
 
     const [product, setProduct] = useState<Product | null>(null);
     const [loading, setLoading] = useState(true);
@@ -264,13 +266,23 @@ export default function ProductDetailPage() {
 
                         {/* Chat với Shop */}
                         {product.shopOwnerUserId && (
-                            <button
-                                onClick={() => router.push(`/chat?userId=${product.shopOwnerUserId}`)}
-                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-violet-200 text-violet-600 rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all font-medium"
-                            >
-                                <MessageCircle className="w-5 h-5" />
-                                Chat với {product.shopName || 'Shop'}
-                            </button>
+                            user?.id === product.shopOwnerUserId ? (
+                                <button
+                                    disabled
+                                    className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-slate-200 text-slate-500 rounded-xl bg-slate-50 font-medium cursor-not-allowed"
+                                >
+                                    <MessageCircle className="w-5 h-5" />
+                                    Đây là sản phẩm của bạn
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => router.push(`/chat?userId=${product.shopOwnerUserId}`)}
+                                    className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-violet-200 text-violet-600 rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all font-medium"
+                                >
+                                    <MessageCircle className="w-5 h-5" />
+                                    Chat với {product.shopName || 'Shop'}
+                                </button>
+                            )
                         )}
 
                         {/* Trust Badges */}
