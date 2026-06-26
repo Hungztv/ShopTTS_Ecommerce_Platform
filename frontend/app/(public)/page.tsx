@@ -1,86 +1,25 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import HeroBanner from "@/components/ui/HeroBanner";
 import CategoryNav from "@/components/ui/CategoryNav";
 import ProductCard from "@/components/ui/ProductCard";
 import { ArrowRight, Sparkles, TrendingUp, Zap } from "lucide-react";
-import { productsPublicService, Product } from "@/lib/services/public-api";
+import { productsPublicService } from "@/lib/services/public-api";
 import { mapProduct } from "@/lib/utils/product-mapper";
+import { SectionHeader } from './components/SectionHeader';
 
-export default function Home() {
-  const [flashDeals, setFlashDeals] = useState<Product[]>([]);
-  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
-  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+export default async function Home() {
+  const [flashRes, trendingRes, newRes] = await Promise.all([
+    // Flash Sale: giá thấp nhất
+    productsPublicService.getAll({ pageSize: 8, sortBy: 'price', sortOrder: 'asc' }),
+    // Xu hướng: trang 2 để đa dạng sản phẩm
+    productsPublicService.getAll({ pageSize: 8, page: 2 }),
+    // Hàng mới về: sắp xếp theo ngày tạo mới nhất (ngày shop đẩy lên)
+    productsPublicService.getAll({ pageSize: 8, sortBy: 'createdAt', sortOrder: 'desc' }),
+  ]);
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      const [flashRes, trendingRes, newRes] = await Promise.all([
-        // Flash Sale: giá thấp nhất
-        productsPublicService.getAll({ pageSize: 8, sortBy: 'price', sortOrder: 'asc' }),
-        // Xu hướng: trang 2 để đa dạng sản phẩm
-        productsPublicService.getAll({ pageSize: 8, page: 2 }),
-        // Hàng mới về: sắp xếp theo ngày tạo mới nhất (ngày shop đẩy lên)
-        productsPublicService.getAll({ pageSize: 8, sortBy: 'createdAt', sortOrder: 'desc' }),
-      ]);
-
-      setFlashDeals(flashRes.items);
-      setTrendingProducts(trendingRes.items);
-      setNewArrivals(newRes.items);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const ProductGridSkeleton = ({ count = 4 }: { count?: number }) => (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {[...Array(count)].map((_, i) => (
-        <div key={i} className="animate-pulse">
-          <div className="bg-slate-200 dark:bg-slate-700 rounded-2xl aspect-square mb-3"></div>
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
-          <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const SectionHeader = ({ icon: Icon, iconColor, title, subtitle, href }: {
-    icon: React.ElementType;
-    iconColor: string;
-    title: string;
-    subtitle: string;
-    href?: string;
-  }) => (
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl ${iconColor} flex items-center justify-center`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">{title}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
-        </div>
-      </div>
-      {href && (
-        <Link
-          href={href}
-          className="hidden sm:flex items-center gap-1.5 text-sm text-violet-600 hover:text-violet-700 font-medium transition-colors"
-        >
-          Xem tất cả
-          <ArrowRight className="w-4 h-4" />
-        </Link>
-      )}
-    </div>
-  );
-
+  const flashDeals = flashRes.items || [];
+  const trendingProducts = trendingRes.items || [];
+  const newArrivals = newRes.items || [];
 
   return (
     <div className="bg-slate-50 dark:bg-slate-900">
@@ -100,9 +39,7 @@ export default function Home() {
             subtitle="Giá tốt - Số lượng có hạn"
             href="/products?sortBy=price&sortOrder=asc"
           />
-          {loading ? (
-            <ProductGridSkeleton count={5} />
-          ) : flashDeals.length > 0 ? (
+          {flashDeals.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {flashDeals.slice(0, 5).map((product) => (
                 <ProductCard key={product.id} {...mapProduct(product)} />
@@ -133,9 +70,7 @@ export default function Home() {
             subtitle="Cập nhật mới nhất mỗi ngày"
             href="/products?sortBy=createdAt&sortOrder=desc"
           />
-          {loading ? (
-            <ProductGridSkeleton count={5} />
-          ) : newArrivals.length > 0 ? (
+          {newArrivals.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {newArrivals.slice(0, 5).map((product) => (
                 <ProductCard key={product.id} {...mapProduct(product)} />
@@ -165,9 +100,7 @@ export default function Home() {
             subtitle="Sản phẩm được quan tâm nhiều nhất"
             href="/products"
           />
-          {loading ? (
-            <ProductGridSkeleton count={5} />
-          ) : trendingProducts.length > 0 ? (
+          {trendingProducts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {trendingProducts.slice(0, 5).map((product) => (
                 <ProductCard key={product.id} {...mapProduct(product)} />
