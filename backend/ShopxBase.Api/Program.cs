@@ -138,11 +138,21 @@ builder.Services.AddAuthentication(options =>
 {
     options.ForwardDefaultSelector = context =>
     {
+        var token = string.Empty;
         var authHeader = context.Request.Headers.Authorization.ToString();
-        if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        
+        if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            token = authHeader.Substring("Bearer ".Length).Trim();
+        }
+        else if (context.Request.Query.TryGetValue("access_token", out var accessToken))
+        {
+            token = accessToken.ToString();
+        }
+
+        if (string.IsNullOrEmpty(token))
             return "SupabaseBearer";
 
-        var token = authHeader.Substring("Bearer ".Length).Trim();
         var segments = token.Split('.');
         if (segments.Length != 3)
             return "SupabaseBearer";
@@ -185,6 +195,20 @@ builder.Services.AddAuthentication(options =>
         RoleClaimType = "role",
         NameClaimType = "email"
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 })
 .AddJwtBearer("AppBearer", options =>
 {
@@ -203,6 +227,20 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero,
         RoleClaimType = ClaimTypes.Role,
         NameClaimType = ClaimTypes.Email
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 

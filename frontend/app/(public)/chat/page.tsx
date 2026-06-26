@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { SignalRProvider } from '@/contexts/SignalRContext';
 import ChatBox from '@/components/chat/ChatBox';
 
@@ -24,7 +24,9 @@ export default function ChatPage() {
               chỉ ở trang này để không ảnh hưởng toàn app
             */}
             <SignalRProvider>
-                <ChatBox />
+                <Suspense fallback={<div>Loading chat...</div>}>
+                    <ChatBox />
+                </Suspense>
             </SignalRProvider>
         </div>
     );

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     Star, Minus, Plus, ChevronLeft, ChevronRight,
-    Truck, Shield, RotateCcw, Package
+    Truck, Shield, RotateCcw, Package, MessageCircle
 } from 'lucide-react';
 import { productsPublicService, Product } from '@/lib/services/public-api';
 import { formatPrice } from '@/lib/utils/product-mapper';
@@ -261,6 +261,17 @@ export default function ProductDetailPage() {
                             <WishlistButton productId={product.id} variant="button" />
                             <CompareButton productId={product.id} variant="button" />
                         </div>
+
+                        {/* Chat với Shop */}
+                        {product.shopOwnerUserId && (
+                            <button
+                                onClick={() => router.push(`/chat?userId=${product.shopOwnerUserId}`)}
+                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-violet-200 text-violet-600 rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all font-medium"
+                            >
+                                <MessageCircle className="w-5 h-5" />
+                                Chat với {product.shopName || 'Shop'}
+                            </button>
+                        )}
 
                         {/* Trust Badges */}
                         <div className="grid grid-cols-3 gap-4 pt-4 border-t dark:border-slate-700">

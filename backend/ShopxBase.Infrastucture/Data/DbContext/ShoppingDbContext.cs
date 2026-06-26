@@ -31,6 +31,9 @@ namespace ShopxBase.Infrastructure.Data
         public DbSet<ShopMember> ShopMembers { get; set; }
         public DbSet<ChatDocument> ChatDocuments { get; set; }
         public DbSet<UserBehavior> UserBehaviors { get; set; }
+        
+        public DbSet<ChatSession> ChatSessions { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -49,6 +52,33 @@ namespace ShopxBase.Infrastructure.Data
             {
                 entity.Property(e => e.Embedding)
                     .HasColumnType("vector(768)");
+            });
+
+            // Config for ChatSession and ChatMessage to avoid cascade delete cycles
+            modelBuilder.Entity<ChatSession>(entity =>
+            {
+                entity.HasOne(e => e.User1)
+                    .WithMany()
+                    .HasForeignKey(e => e.User1Id)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.User2)
+                    .WithMany()
+                    .HasForeignKey(e => e.User2Id)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.HasOne(e => e.Session)
+                    .WithMany(s => s.Messages)
+                    .HasForeignKey(e => e.SessionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Sender)
+                    .WithMany()
+                    .HasForeignKey(e => e.SenderId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // UserBehavior: indexes for fast recommendation queries

@@ -17,6 +17,9 @@ namespace ShopxBase.Infrastructure.Data.Repositories
         public async Task<Product> GetBySlugAsync(string slug)
         {
             return await _dbSet.AsNoTracking()
+                .Include(p => p.Brand)
+                .Include(p => p.Category)
+                .Include(p => p.Shop)
                 .FirstOrDefaultAsync(p => p.Slug == slug && !p.IsDeleted);
         }
 
@@ -115,6 +118,7 @@ namespace ShopxBase.Infrastructure.Data.Repositories
             return await _dbSet
                 .Include(p => p.Brand)
                 .Include(p => p.Category)
+                .Include(p => p.Shop)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
         }

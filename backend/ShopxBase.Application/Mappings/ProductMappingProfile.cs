@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using ShopxBase.Domain.Entities;
 using ShopxBase.Application.DTOs.Product;
 using ShopxBase.Application.Features.Products.Commands.CreateProduct;
@@ -20,6 +20,8 @@ public class ProductMappingProfile : Profile
 					   opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
 			.ForMember(dest => dest.ShopName,
 					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.Name : null))
+			.ForMember(dest => dest.ShopOwnerUserId,
+					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.OwnerUserId : null))
 			.ForMember(dest => dest.AverageRating,
 					   opt => opt.MapFrom(src => src.Ratings != null && src.Ratings.Any()
 												 ? src.Ratings.Average(r => r.Star)

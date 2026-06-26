@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -9,12 +10,14 @@ using ShopxBase.Infrastructure.Data;
 
 #nullable disable
 
-namespace ShopxBase.Infrastructure.Persistence.Migrations
+namespace ShopxBase.Infrastructure.Migrations
 {
     [DbContext(typeof(ShopxBaseDbContext))]
-    partial class ShopxBaseDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626013309_AddChatEntities")]
+    partial class AddChatEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as signalR from '@microsoft/signalr';
+import Cookies from 'js-cookie';
 
 interface SignalRContextType {
     connection: signalR.HubConnection | null;
@@ -24,9 +25,22 @@ export const SignalRProvider = ({ children }: { children: React.ReactNode }) => 
         if (apiUrl.endsWith('/api')) {
             apiUrl = apiUrl.substring(0, apiUrl.length - 4);
         }
+
+        // Lấy token từ cookies (cùng cách AuthContext đang dùng)
+        const getToken = () => {
+            return Cookies.get('supabaseAccessToken') || Cookies.get('accessToken') || '';
+        };
+
+        // Nếu chưa đăng nhập (chưa có token), không kết nối
+        if (!getToken()) {
+            console.log('SignalR: No token found, skipping connection.');
+            return;
+        }
         
         const newConnection = new signalR.HubConnectionBuilder()
-            .withUrl(`${apiUrl}/chathub`)
+            .withUrl(`${apiUrl}/chathub`, {
+                accessTokenFactory: () => getToken(),
+            })
             .withAutomaticReconnect()
             .build();
 

@@ -47,6 +47,9 @@ export interface Product {
     categoryName?: string;
     brandId?: number;
     brandName?: string;
+    shopId?: number;
+    shopName?: string;
+    shopOwnerUserId?: string;
     averageRating?: number;
     totalReviews?: number;
     createdAt?: string;
