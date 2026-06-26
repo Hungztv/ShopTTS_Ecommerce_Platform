@@ -211,6 +211,9 @@ builder.Services.AddAuthorization();
 // 7. Add Controllers
 builder.Services.AddControllers();
 
+// Add SignalR
+builder.Services.AddSignalR();
+
 // Add Swagger documentation with JWT support
 builder.Services.AddSwaggerGen(c =>
 {
@@ -305,8 +308,8 @@ builder.Services.AddCors(options =>
                     "https://shop-tts-v1.vercel.app"          // Thêm các domain khác nếu có
                 )
                 .AllowAnyHeader()
-                .AllowAnyMethod();
-            // .AllowCredentials(); // Bật dòng này nếu bạn dùng Cookie, nếu chỉ dùng JWT Header thì không cần
+                .AllowAnyMethod()
+                .AllowCredentials(); // SignalR requires credentials
         });
 });
 
@@ -352,6 +355,9 @@ app.UseMiddleware<ShopxBase.Api.Middleware.AddRolesFromDatabaseMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR Hub
+app.MapHub<ShopxBase.Api.Hubs.ChatHub>("/chathub");
 
 app.MapHealthChecks("/health");
 
