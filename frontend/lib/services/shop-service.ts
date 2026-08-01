@@ -109,3 +109,71 @@ export const shopService = {
     return res.data.data;
   },
 };
+
+// ==================== SHOP RATINGS ====================
+
+export interface ShopRating {
+  id: number;
+  shopId: number;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  star: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface ShopRatingStats {
+  averageRating: number;
+  totalRatings: number;
+  fiveStarCount: number;
+  fourStarCount: number;
+  threeStarCount: number;
+  twoStarCount: number;
+  oneStarCount: number;
+}
+
+export interface ShopRatingPagedResponse {
+  items: ShopRating[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: ShopRatingStats;
+}
+
+export const shopRatingsService = {
+  /** Lấy danh sách đánh giá của shop kèm thống kê */
+  async getRatings(shopId: number, page: number = 1, pageSize: number = 10): Promise<ShopRatingPagedResponse> {
+    try {
+      const res = await api.get<ShopRatingPagedResponse>(`/shops/${shopId}/ratings`, {
+        params: { page, pageSize }
+      });
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching shop ratings:", err);
+      return {
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 10,
+        totalPages: 0,
+        stats: {
+          averageRating: 0,
+          totalRatings: 0,
+          fiveStarCount: 0,
+          fourStarCount: 0,
+          threeStarCount: 0,
+          twoStarCount: 0,
+          oneStarCount: 0
+        }
+      };
+    }
+  },
+
+  /** Gửi đánh giá cho shop (1 đến 5 sao) */
+  async createRating(shopId: number, data: { star: number; comment: string }): Promise<ShopRating> {
+    const res = await api.post<ShopRating>(`/shops/${shopId}/ratings`, data);
+    return res.data;
+  }
+};

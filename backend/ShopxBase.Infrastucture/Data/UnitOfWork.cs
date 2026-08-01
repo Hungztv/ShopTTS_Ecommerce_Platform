@@ -37,6 +37,7 @@ namespace ShopxBase.Infrastructure.Data
         public IRepository<BusinessRegistration> BusinessRegistrations => GetRepository<BusinessRegistration>();
         public IRepository<Shop> Shops => GetRepository<Shop>();
         public IRepository<ShopMember> ShopMembers => GetRepository<ShopMember>();
+        public IRepository<ShopRating> ShopRatings => GetRepository<ShopRating>();
         public IRepository<ChatDocument> ChatDocuments => GetRepository<ChatDocument>();
         public IRepository<UserBehavior> UserBehaviors => GetRepository<UserBehavior>();
 

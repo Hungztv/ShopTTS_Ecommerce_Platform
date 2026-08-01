@@ -29,6 +29,7 @@ namespace ShopxBase.Infrastructure.Data
         public DbSet<BusinessRegistration> BusinessRegistrations { get; set; }
         public DbSet<Shop> Shops { get; set; }
         public DbSet<ShopMember> ShopMembers { get; set; }
+        public DbSet<ShopRating> ShopRatings { get; set; }
         public DbSet<ChatDocument> ChatDocuments { get; set; }
         public DbSet<UserBehavior> UserBehaviors { get; set; }
         

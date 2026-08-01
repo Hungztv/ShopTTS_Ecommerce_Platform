@@ -21,6 +21,8 @@ public class ProductDto
     public string CategoryName { get; set; }
     public int ShopId { get; set; }
     public string? ShopName { get; set; }
+    public string? ShopSlug { get; set; }
+    public string? ShopLogoUrl { get; set; }
     public string? ShopOwnerUserId { get; set; }
     public decimal AverageRating { get; set; }
     public int TotalReviews { get; set; }

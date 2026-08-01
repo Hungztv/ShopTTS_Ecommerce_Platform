@@ -22,15 +22,15 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, LoginResp
 
     public async Task<LoginResponseDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
-        // 1) Chặn trùng username ở local (Supabase không quản lý username)
-        var existingUserByUsername = await _userManager.FindByNameAsync(request.UserName);
-        if (existingUserByUsername != null)
-            throw new UserAlreadyExistsException($"Tên người dùng '{request.UserName}' đã tồn tại");
+        // 1) Chặn trùng Email ở local
+        var existingUserByEmail = await _userManager.FindByEmailAsync(request.Email);
+        if (existingUserByEmail != null)
+            throw new UserAlreadyExistsException($"Email '{request.Email}' đã được sử dụng");
 
         // 2) Đăng ký trên Supabase (nguồn chính)
         var metadata = new Dictionary<string, object>
         {
-            { "full_name", request.FullName ?? request.UserName },
+            { "full_name", request.FullName ?? request.Email },
             { "phone", request.PhoneNumber ?? string.Empty }
         };
 
@@ -66,8 +66,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, LoginResp
         // 4) Fail-safe: nếu trigger chưa tạo thì tự tạo user local (ID phải khớp Supabase)
         if (localUser == null)
         {
-            // Double-check sau khi chờ trigger: nếu vừa được tạo thì dùng luôn, tránh lỗi duplicate key
-            var recheckUser = await _userManager.FindByNameAsync(request.UserName);
+            // Double-check sau khi chờ trigger
+            var recheckUser = await _userManager.FindByEmailAsync(request.Email);
             if (recheckUser != null)
             {
                 localUser = recheckUser;
@@ -77,9 +77,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, LoginResp
                 localUser = new AppUser
                 {
                     Id = supabaseUserId,
-                    UserName = request.UserName,
+                    UserName = request.Email,
                     Email = request.Email,
-                    FullName = request.FullName ?? request.UserName,
+                    FullName = request.FullName ?? request.Email,
                     PhoneNumber = request.PhoneNumber,
                     Occupation = "Customer",
                     Address = string.Empty,

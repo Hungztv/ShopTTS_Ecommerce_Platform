@@ -50,8 +50,8 @@ BEGIN
     )
     VALUES (
         NEW.id::TEXT,                                    -- Id (Supabase user id)
-        COALESCE(v_full_name, split_part(NEW.email, '@', 1)), -- UserName
-        UPPER(COALESCE(v_full_name, split_part(NEW.email, '@', 1))), -- NormalizedUserName
+        NEW.email,                                       -- UserName (sử dụng email để đảm bảo duy nhất, không dùng full_name)
+        UPPER(NEW.email),                                -- NormalizedUserName
         NEW.email,                                       -- Email
         UPPER(NEW.email),                                -- NormalizedEmail
         COALESCE(NEW.email_confirmed_at IS NOT NULL, FALSE), -- EmailConfirmed

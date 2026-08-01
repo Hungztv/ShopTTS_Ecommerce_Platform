@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     Star, Minus, Plus, ChevronLeft, ChevronRight,
-    Truck, Shield, RotateCcw, Package, MessageCircle
+    Truck, Shield, RotateCcw, Package, MessageCircle, Store, ExternalLink
 } from 'lucide-react';
 import { productsPublicService, Product } from '@/lib/services/public-api';
 import { formatPrice } from '@/lib/utils/product-mapper';
@@ -264,25 +264,71 @@ export default function ProductDetailPage() {
                             <CompareButton productId={product.id} variant="button" />
                         </div>
 
-                        {/* Chat với Shop */}
-                        {product.shopOwnerUserId && (
-                            user?.id === product.shopOwnerUserId ? (
-                                <button
-                                    disabled
-                                    className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-slate-200 text-slate-500 rounded-xl bg-slate-50 font-medium cursor-not-allowed"
-                                >
-                                    <MessageCircle className="w-5 h-5" />
-                                    Đây là sản phẩm của bạn
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => router.push(`/chat?userId=${product.shopOwnerUserId}`)}
-                                    className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-violet-200 text-violet-600 rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all font-medium"
-                                >
-                                    <MessageCircle className="w-5 h-5" />
-                                    Chat với {product.shopName || 'Shop'}
-                                </button>
-                            )
+                        {/* Khối thông tin Cửa Hàng (Shop) */}
+                        {(product.shopName || product.shopId) && (
+                            <div className="p-4 sm:p-5 rounded-2xl border border-violet-100 dark:border-slate-700 bg-gradient-to-br from-violet-50/50 via-white to-purple-50/30 dark:from-slate-800 dark:to-slate-800/80 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
+                                    <div className="flex items-center gap-3">
+                                        {/* Logo Shop */}
+                                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-violet-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                                            {product.shopLogoUrl ? (
+                                                <img src={product.shopLogoUrl} alt={product.shopName || 'Shop'} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Store className="w-6 h-6" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <Link
+                                                    href={`/shops/${product.shopSlug || product.shopId}`}
+                                                    className="font-bold text-slate-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors text-base"
+                                                >
+                                                    {product.shopName || `Shop #${product.shopId}`}
+                                                </Link>
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-full">
+                                                    Đã xác thực
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                                Cửa hàng đăng bán sản phẩm này
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    {/* Nút Xem Shop */}
+                                    <Link
+                                        href={`/shops/${product.shopSlug || product.shopId}`}
+                                        className="flex items-center justify-center gap-2 py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-violet-200 dark:shadow-none"
+                                    >
+                                        <Store className="w-4 h-4" />
+                                        <span>Xem Shop sản phẩm</span>
+                                        <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                    </Link>
+
+                                    {/* Nút Chat với Shop */}
+                                    {product.shopOwnerUserId && (
+                                        user?.id === product.shopOwnerUserId ? (
+                                            <button
+                                                disabled
+                                                className="flex items-center justify-center gap-2 py-2.5 px-4 border border-slate-200 text-slate-400 rounded-xl bg-slate-50 font-medium text-sm cursor-not-allowed"
+                                            >
+                                                <MessageCircle className="w-4 h-4" />
+                                                Shop của bạn
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => router.push(`/chat?userId=${product.shopOwnerUserId}`)}
+                                                className="flex items-center justify-center gap-2 py-2.5 px-4 border border-violet-300 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl font-medium text-sm transition-all"
+                                            >
+                                                <MessageCircle className="w-4 h-4" />
+                                                Chat ngay
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            </div>
                         )}
 
                         {/* Trust Badges */}

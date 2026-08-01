@@ -53,6 +53,9 @@ namespace ShopxBase.Infrastructure.Data.Repositories
         public async Task<(IEnumerable<Product> items, int total)> GetPaginatedAsync(int pageNumber, int pageSize)
         {
             var query = _dbSet.AsNoTracking()
+                .Include(p => p.Brand)
+                .Include(p => p.Category)
+                .Include(p => p.Shop)
                 .Where(p => !p.IsDeleted)
                 .OrderByDescending(p => p.CreatedAt);
 
@@ -71,6 +74,9 @@ namespace ShopxBase.Infrastructure.Data.Repositories
             int pageSize)
         {
             var query = _dbSet.AsNoTracking()
+                .Include(p => p.Brand)
+                .Include(p => p.Category)
+                .Include(p => p.Shop)
                 .Where(p => !p.IsDeleted)
                 .Where(predicate)
                 .OrderByDescending(p => p.CreatedAt);

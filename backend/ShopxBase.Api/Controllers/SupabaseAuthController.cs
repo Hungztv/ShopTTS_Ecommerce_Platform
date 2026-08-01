@@ -45,21 +45,11 @@ public class SupabaseAuthController : ControllerBase
             return BadRequest(new { success = false, message = "Email và mật khẩu là bắt buộc" });
         }
 
-        // Chặn trùng email/username ở local trước khi gọi Supabase để tránh lỗi 23505 từ trigger
+        // Chặn trùng email ở local trước khi gọi Supabase để tránh lỗi 23505 từ trigger
         var existingByEmail = await _userManager.FindByEmailAsync(request.Email);
         if (existingByEmail != null)
         {
             return Conflict(new { success = false, error = "email_exists", message = "Email đã được sử dụng" });
-        }
-
-        var userNameToCheck = string.IsNullOrWhiteSpace(request.FullName) ? request.Email : request.FullName;
-        if (!string.IsNullOrWhiteSpace(userNameToCheck))
-        {
-            var existingByUserName = await _userManager.FindByNameAsync(userNameToCheck);
-            if (existingByUserName != null)
-            {
-                return Conflict(new { success = false, error = "username_exists", message = "Tên người dùng đã tồn tại, vui lòng chọn tên khác" });
-            }
         }
 
         var metadata = new Dictionary<string, object>();

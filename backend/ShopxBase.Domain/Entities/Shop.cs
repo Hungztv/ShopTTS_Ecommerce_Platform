@@ -16,4 +16,5 @@ public class Shop : BaseEntity
     public virtual BusinessRegistration BusinessRegistration { get; set; }
     public virtual ICollection<Product> Products { get; set; } = new List<Product>();
     public virtual ICollection<ShopMember> Members { get; set; } = new List<ShopMember>();
+    public virtual ICollection<ShopRating> ShopRatings { get; set; } = new List<ShopRating>();
 }

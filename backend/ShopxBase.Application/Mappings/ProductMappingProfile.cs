@@ -20,6 +20,10 @@ public class ProductMappingProfile : Profile
 					   opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
 			.ForMember(dest => dest.ShopName,
 					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.Name : null))
+			.ForMember(dest => dest.ShopSlug,
+					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.Slug : null))
+			.ForMember(dest => dest.ShopLogoUrl,
+					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.LogoUrl : null))
 			.ForMember(dest => dest.ShopOwnerUserId,
 					   opt => opt.MapFrom(src => src.Shop != null ? src.Shop.OwnerUserId : null))
 			.ForMember(dest => dest.AverageRating,

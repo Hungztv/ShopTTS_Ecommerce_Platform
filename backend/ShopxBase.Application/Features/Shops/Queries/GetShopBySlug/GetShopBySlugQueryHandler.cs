@@ -27,15 +27,39 @@ public class GetShopBySlugQueryHandler : IRequestHandler<GetShopBySlugQuery, Sho
         var totalProducts = await _unitOfWork.Products.CountAsync(
             p => p.ShopId == shop.Id && !p.IsDeleted);
 
-        // Calculate average rating from shop's products
-        var products = await _unitOfWork.Products.FindAsync(
-            p => p.ShopId == shop.Id && !p.IsDeleted && p.RatingCount > 0);
-
+        // Calculate average rating from direct shop ratings & shop's products
         decimal averageRating = 0;
-        var productList = products.ToList();
-        if (productList.Any())
+        try
         {
-            averageRating = Math.Round(productList.Average(p => p.AverageScore), 2);
+            var directRatings = await _unitOfWork.ShopRatings.FindAsync(r => r.ShopId == shop.Id && r.IsApproved && !r.IsDeleted);
+            var directRatingList = directRatings.ToList();
+
+            if (directRatingList.Any())
+            {
+                averageRating = Math.Round((decimal)directRatingList.Average(r => r.Star), 1);
+            }
+            else
+            {
+                var products = await _unitOfWork.Products.FindAsync(
+                    p => p.ShopId == shop.Id && !p.IsDeleted && p.RatingCount > 0);
+
+                var productList = products.ToList();
+                if (productList.Any())
+                {
+                    averageRating = Math.Round(productList.Average(p => p.AverageScore), 1);
+                }
+            }
+        }
+        catch
+        {
+            var products = await _unitOfWork.Products.FindAsync(
+                p => p.ShopId == shop.Id && !p.IsDeleted && p.RatingCount > 0);
+
+            var productList = products.ToList();
+            if (productList.Any())
+            {
+                averageRating = Math.Round(productList.Average(p => p.AverageScore), 1);
+            }
         }
 
         return new ShopPublicDto

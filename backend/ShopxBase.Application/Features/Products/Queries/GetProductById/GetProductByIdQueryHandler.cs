@@ -20,7 +20,7 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, P
     public async Task<ProductDto> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
         // 1. Get product by id
-        var product = await _unitOfWork.Products.GetByIdAsync(request.Id);
+        var product = await _unitOfWork.ProductRepository.GetWithDetailsAsync(request.Id);
         if (product == null)
             throw new InvalidProductException($"Sản phẩm với Id {request.Id} không tồn tại");
 

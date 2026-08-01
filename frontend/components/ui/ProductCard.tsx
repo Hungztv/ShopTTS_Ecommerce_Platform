@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Star, Zap } from "lucide-react";
+import { Star, Zap, Store } from "lucide-react";
 import AddToCartButton from "@/components/ui/AddToCartButton";
 import WishlistButton from "@/components/ui/WishlistButton";
 import CompareButton from "@/components/ui/CompareButton";
@@ -19,6 +19,8 @@ interface ProductCardProps {
     reviews: number;
     badge?: "sale" | "new" | "hot";
     category: string;
+    shopName?: string;
+    shopSlug?: string;
 }
 
 export default function ProductCard({
@@ -32,6 +34,8 @@ export default function ProductCard({
     reviews,
     badge,
     category,
+    shopName,
+    shopSlug,
 }: ProductCardProps) {
     const productUrl = slug ? `/products/${slug}` : `/products/${id}`;
     const [isHovered, setIsHovered] = useState(false);
@@ -127,10 +131,23 @@ export default function ProductCard({
 
             {/* Content */}
             <div className="p-4 sm:p-5">
-                {/* Category */}
-                <p className="text-xs text-violet-600 dark:text-violet-400 font-semibold mb-1.5 uppercase tracking-wider">
-                    {category}
-                </p>
+                {/* Category & Shop */}
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <p className="text-xs text-violet-600 dark:text-violet-400 font-semibold uppercase tracking-wider truncate">
+                        {category}
+                    </p>
+                    {shopName && (
+                        <Link
+                            href={`/shops/${shopSlug || ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-violet-600 dark:text-slate-400 dark:hover:text-violet-400 transition-colors truncate max-w-[120px]"
+                            title={`Cửa hàng: ${shopName}`}
+                        >
+                            <Store className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{shopName}</span>
+                        </Link>
+                    )}
+                </div>
 
                 {/* Name */}
                 <Link href={productUrl}>

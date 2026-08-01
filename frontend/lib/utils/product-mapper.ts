@@ -12,6 +12,8 @@ export interface ProductCardData {
     rating: number;
     reviews: number;
     category: string;
+    shopName?: string;
+    shopSlug?: string;
     badge?: 'sale' | 'new' | 'hot';
 }
 
@@ -31,6 +33,8 @@ export function mapProduct(product: Product): ProductCardData {
         rating: product.averageRating || 0,
         reviews: product.totalReviews || 0,
         category: product.categoryName || '',
+        shopName: product.shopName,
+        shopSlug: product.shopSlug || (product.shopId ? product.shopId.toString() : undefined),
         badge: hasDiscount ? 'sale' : undefined,
     };
 }
