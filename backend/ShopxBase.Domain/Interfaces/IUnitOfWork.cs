@@ -26,6 +26,10 @@ public interface IUnitOfWork : IDisposable
     IRepository<ShopRating> ShopRatings { get; }
     IRepository<ChatDocument> ChatDocuments { get; }
     IRepository<UserBehavior> UserBehaviors { get; }
+    IRepository<ShopWallet> ShopWallets { get; }
+    IRepository<WalletTransaction> WalletTransactions { get; }
+    IRepository<WithdrawalRequest> WithdrawalRequests { get; }
+    IRepository<OrderDispute> OrderDisputes { get; }
 
     IProductRepository ProductRepository { get; }
     IOrderRepository OrderRepository { get; }

@@ -7,6 +7,7 @@ import {
     Store,
     Package,
     ShoppingCart,
+    Wallet,
     ChevronLeft,
     Menu,
     LogOut,
@@ -20,6 +21,7 @@ const menuItems = [
     { name: 'Thông tin Shop', href: '/seller/shop', icon: Store },
     { name: 'Sản phẩm', href: '/seller/products', icon: Package },
     { name: 'Đơn hàng', href: '/seller/orders', icon: ShoppingCart },
+    { name: 'Ví & Đảm bảo', href: '/seller/wallet', icon: Wallet },
 ];
 
 export default function SellerSidebar() {

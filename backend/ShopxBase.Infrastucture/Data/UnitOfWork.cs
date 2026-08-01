@@ -40,6 +40,10 @@ namespace ShopxBase.Infrastructure.Data
         public IRepository<ShopRating> ShopRatings => GetRepository<ShopRating>();
         public IRepository<ChatDocument> ChatDocuments => GetRepository<ChatDocument>();
         public IRepository<UserBehavior> UserBehaviors => GetRepository<UserBehavior>();
+        public IRepository<ShopWallet> ShopWallets => GetRepository<ShopWallet>();
+        public IRepository<WalletTransaction> WalletTransactions => GetRepository<WalletTransaction>();
+        public IRepository<WithdrawalRequest> WithdrawalRequests => GetRepository<WithdrawalRequest>();
+        public IRepository<OrderDispute> OrderDisputes => GetRepository<OrderDispute>();
 
         // Specialized Repositories (Custom Queries)
         private IUserRepository _userRepository;

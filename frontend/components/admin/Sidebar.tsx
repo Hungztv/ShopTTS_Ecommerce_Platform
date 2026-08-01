@@ -21,6 +21,7 @@ import {
     Moon,
     Sun,
     Store,
+    ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +31,7 @@ const menuItems = [
     { name: 'Danh mục', href: '/admin/categories', icon: FolderTree },
     { name: 'Thương hiệu', href: '/admin/brands', icon: Building2 },
     { name: 'Đơn hàng', href: '/admin/orders', icon: ShoppingCart },
+    { name: 'Tranh chấp Escrow', href: '/admin/disputes', icon: ShieldAlert },
     { name: 'Mã giảm giá', href: '/admin/coupons', icon: Ticket },
     { name: 'Sliders', href: '/admin/sliders', icon: Image },
     { name: 'Tin nhắn', href: '/admin/messages', icon: MessageSquare },
