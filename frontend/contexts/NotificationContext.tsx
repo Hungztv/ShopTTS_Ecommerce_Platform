@@ -62,44 +62,49 @@ const ORDER_STATUS_MAP: Record<number, { type: NotificationType; title: string; 
 
 // ==================== HELPERS ====================
 
-const STORAGE_KEY = 'shopx_notifications';
-const ORDER_STATUS_CACHE_KEY = 'shopx_order_status_cache';
 const POLL_INTERVAL = 30000; // 30 seconds
 
 function generateId(): string {
     return `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-function loadFromStorage(): AppNotification[] {
+function getStorageKey(userKey?: string): string {
+    return userKey ? `shopx_notifications_${userKey}` : 'shopx_notifications_guest';
+}
+
+function getCacheKey(userKey?: string): string {
+    return userKey ? `shopx_order_cache_${userKey}` : 'shopx_order_cache_guest';
+}
+
+function loadFromStorage(userKey?: string): AppNotification[] {
     if (typeof window === 'undefined') return [];
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(getStorageKey(userKey));
         return raw ? JSON.parse(raw) : [];
     } catch {
         return [];
     }
 }
 
-function saveToStorage(notifications: AppNotification[]) {
+function saveToStorage(notifications: AppNotification[], userKey?: string) {
     if (typeof window === 'undefined') return;
-    // Keep max 50 notifications
     const trimmed = notifications.slice(0, 50);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(getStorageKey(userKey), JSON.stringify(trimmed));
 }
 
-function loadStatusCache(): Record<string, number> {
+function loadStatusCache(userKey?: string): Record<string, number> {
     if (typeof window === 'undefined') return {};
     try {
-        const raw = localStorage.getItem(ORDER_STATUS_CACHE_KEY);
+        const raw = localStorage.getItem(getCacheKey(userKey));
         return raw ? JSON.parse(raw) : {};
     } catch {
         return {};
     }
 }
 
-function saveStatusCache(cache: Record<string, number>) {
+function saveStatusCache(cache: Record<string, number>, userKey?: string) {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(ORDER_STATUS_CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(getCacheKey(userKey), JSON.stringify(cache));
 }
 
 // ==================== CONTEXT ====================
@@ -108,21 +113,23 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
-    const { isAuthenticated } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const isPollingRef = useRef(false);
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        setNotifications(loadFromStorage());
-    }, []);
+    const userKey = user?.id || user?.email || undefined;
 
-    // Save to localStorage whenever notifications change
+    // Load user-specific notifications on mount or when user changes
+    useEffect(() => {
+        setNotifications(loadFromStorage(userKey));
+    }, [userKey]);
+
+    // Save to user-specific localStorage whenever notifications change
     useEffect(() => {
         if (notifications.length > 0) {
-            saveToStorage(notifications);
+            saveToStorage(notifications, userKey);
         }
-    }, [notifications]);
+    }, [notifications, userKey]);
 
     // Add notification
     const addNotification = useCallback((notif: Omit<AppNotification, 'id' | 'read' | 'createdAt'>) => {
@@ -134,34 +141,36 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         };
         setNotifications((prev) => {
             const updated = [newNotif, ...prev];
-            saveToStorage(updated);
+            saveToStorage(updated, userKey);
             return updated;
         });
-    }, []);
+    }, [userKey]);
 
     // Mark as read
     const markAsRead = useCallback((id: string) => {
         setNotifications((prev) => {
             const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
-            saveToStorage(updated);
+            saveToStorage(updated, userKey);
             return updated;
         });
-    }, []);
+    }, [userKey]);
 
     // Mark all as read
     const markAllAsRead = useCallback(() => {
         setNotifications((prev) => {
             const updated = prev.map((n) => ({ ...n, read: true }));
-            saveToStorage(updated);
+            saveToStorage(updated, userKey);
             return updated;
         });
-    }, []);
+    }, [userKey]);
 
     // Clear all
     const clearAll = useCallback(() => {
         setNotifications([]);
-        localStorage.removeItem(STORAGE_KEY);
-    }, []);
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(getStorageKey(userKey));
+        }
+    }, [userKey]);
 
     // Poll for order status changes
     const checkOrderStatusChanges = useCallback(async () => {
@@ -174,9 +183,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
             if (!orders.length) return;
 
-            const statusCache = loadStatusCache();
+            const statusCache = loadStatusCache(userKey);
             const newCache: Record<string, number> = {};
-            const currentNotifications = loadFromStorage();
+            const currentNotifications = loadFromStorage(userKey);
 
             for (const order of orders) {
                 const orderCode = order.orderCode as string;
@@ -207,14 +216,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            saveStatusCache(newCache);
+            saveStatusCache(newCache, userKey);
         } catch (err) {
-            // Silently fail polling
             console.debug('Notification polling error:', err);
         } finally {
             isPollingRef.current = false;
         }
-    }, [isAuthenticated, addNotification]);
+    }, [isAuthenticated, addNotification, userKey]);
 
     // Start/stop polling based on auth
     useEffect(() => {
@@ -226,12 +234,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Initial check after a short delay
         const initialTimeout = setTimeout(() => {
             checkOrderStatusChanges();
         }, 3000);
 
-        // Start polling
         pollRef.current = setInterval(checkOrderStatusChanges, POLL_INTERVAL);
 
         return () => {
