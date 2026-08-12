@@ -14,10 +14,12 @@ import {
     Moon,
     Sun,
     LayoutDashboard,
+    BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const menuItems = [
+    { name: 'Thống kê & Tổng quan', href: '/seller/analytics', icon: BarChart3 },
     { name: 'Thông tin Shop', href: '/seller/shop', icon: Store },
     { name: 'Sản phẩm', href: '/seller/products', icon: Package },
     { name: 'Đơn hàng', href: '/seller/orders', icon: ShoppingCart },

@@ -78,22 +78,22 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+        <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
             {/* Left Panel — Form */}
             <div className="w-full lg:w-[50%] flex items-center justify-center p-6 sm:p-10 xl:p-16">
                 <div className={`w-full max-w-[480px] transition-all duration-700 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
                     {/* Mobile logo */}
                     <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-700 to-slate-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                             <ShoppingBag className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                        <span className="text-2xl font-bold bg-gradient-to-r from-indigo-700 to-slate-700 bg-clip-text text-transparent">
                             ShopTTS
                         </span>
                     </div>
 
                     {/* Back to login */}
-                    <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 mb-6 group transition-colors">
+                    <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-6 group transition-colors">
                         <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                         Quay lại đăng nhập
                     </Link>
@@ -126,12 +126,12 @@ export default function RegisterPage() {
                                 Họ và tên
                             </label>
                             <div className="relative group">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-violet-500 transition-colors" />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     type="text"
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all"
+                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-none transition-all"
                                     placeholder="Nguyễn Văn A"
                                     autoComplete="name"
                                 />
@@ -144,12 +144,12 @@ export default function RegisterPage() {
                                 Email <span className="text-red-400">*</span>
                             </label>
                             <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-violet-500 transition-colors" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all"
+                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-none transition-all"
                                     placeholder="name@example.com"
                                     required
                                     autoComplete="email"
@@ -163,12 +163,12 @@ export default function RegisterPage() {
                                 Mật khẩu <span className="text-red-400">*</span>
                             </label>
                             <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-violet-500 transition-colors" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-12 pr-12 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all"
+                                    className="w-full pl-12 pr-12 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-none transition-all"
                                     placeholder="Ít nhất 6 ký tự"
                                     required
                                     autoComplete="new-password"
@@ -205,17 +205,17 @@ export default function RegisterPage() {
                                 Xác nhận mật khẩu <span className="text-red-400">*</span>
                             </label>
                             <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-violet-500 transition-colors" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className={`w-full pl-12 pr-12 py-3.5 border rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all ${
+                                    className={`w-full pl-12 pr-12 py-3.5 border rounded-2xl bg-white dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all ${
                                         confirmPassword && confirmPassword !== password
                                             ? 'border-red-400 dark:border-red-500 focus:border-red-400'
                                             : confirmPassword && confirmPassword === password
                                                 ? 'border-green-400 dark:border-green-500 focus:border-green-400'
-                                                : 'border-gray-200 dark:border-gray-700 focus:border-violet-500'
+                                                : 'border-gray-200 dark:border-gray-700 focus:border-indigo-600'
                                     }`}
                                     placeholder="Nhập lại mật khẩu"
                                     required
@@ -249,15 +249,15 @@ export default function RegisterPage() {
                                     className="peer sr-only"
                                     required
                                 />
-                                <div className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-gray-600 peer-checked:bg-violet-600 peer-checked:border-violet-600 transition-all flex items-center justify-center">
+                                <div className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-gray-600 peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all flex items-center justify-center">
                                     <Check className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} />
                                 </div>
                             </div>
                             <span className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed group-hover:text-gray-800 dark:group-hover:text-gray-300 transition-colors">
                                 Tôi đồng ý với{' '}
-                                <Link href="/terms" className="text-violet-600 hover:underline font-medium">Điều khoản dịch vụ</Link>
+                                <Link href="/terms" className="text-indigo-600 hover:underline font-medium">Điều khoản dịch vụ</Link>
                                 {' '}và{' '}
-                                <Link href="/privacy" className="text-violet-600 hover:underline font-medium">Chính sách bảo mật</Link>
+                                <Link href="/privacy" className="text-indigo-600 hover:underline font-medium">Chính sách bảo mật</Link>
                             </span>
                         </label>
 
@@ -265,7 +265,7 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             disabled={isSubmitting || !agreeTerms}
-                            className="w-full relative bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:-translate-y-0.5 active:translate-y-0 group mt-2"
+                            className="w-full relative bg-gradient-to-r from-indigo-700 to-slate-700 hover:from-indigo-800 hover:to-slate-800 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 active:translate-y-0 group mt-2"
                         >
                             {isSubmitting ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -284,21 +284,21 @@ export default function RegisterPage() {
                             <div className="w-full border-t border-gray-200 dark:border-gray-700/50" />
                         </div>
                         <div className="relative flex justify-center">
-                            <span className="px-4 bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                            <span className="px-4 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-xs text-gray-400 uppercase tracking-wider font-medium">
                                 hoặc đăng ký với
                             </span>
                         </div>
                     </div>
 
                     {/* Social */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="flex justify-center">
                         <button
                             onClick={() => handleOAuthLogin('google')}
                             disabled={!!oauthLoading}
-                            className="flex items-center justify-center gap-2.5 py-3.5 px-4 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                             {oauthLoading === 'google' ? (
-                                <div className="w-5 h-5 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                                <div className="w-5 h-5 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
                             ) : (
                                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -307,21 +307,7 @@ export default function RegisterPage() {
                                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                                 </svg>
                             )}
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Google</span>
-                        </button>
-                        <button
-                            onClick={() => handleOAuthLogin('github')}
-                            disabled={!!oauthLoading}
-                            className="flex items-center justify-center gap-2.5 py-3.5 px-4 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            {oauthLoading === 'github' ? (
-                                <div className="w-5 h-5 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
-                            ) : (
-                                <svg className="w-5 h-5 text-gray-800 dark:text-white" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                                </svg>
-                            )}
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">GitHub</span>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Đăng ký với Google</span>
                         </button>
                     </div>
 
@@ -330,7 +316,7 @@ export default function RegisterPage() {
                         <span className="text-gray-500 dark:text-gray-400 text-sm">
                             Đã có tài khoản?{' '}
                         </span>
-                        <Link href="/login" className="text-sm font-semibold text-violet-600 hover:text-violet-700">
+                        <Link href="/login" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                             Đăng nhập ngay
                         </Link>
                     </div>
@@ -340,13 +326,13 @@ export default function RegisterPage() {
             {/* Right Panel — Branding */}
             <div className="hidden lg:flex lg:w-[50%] relative overflow-hidden">
                 {/* Layered gradient background */}
-                <div className="absolute inset-0 bg-gradient-to-bl from-pink-500 via-purple-600 to-violet-700" />
+                <div className="absolute inset-0 bg-gradient-to-bl from-slate-600 via-indigo-800 to-slate-900" />
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
 
                 {/* Decorative blobs */}
-                <div className="absolute -top-24 -right-24 w-96 h-96 bg-pink-500/30 rounded-full blur-3xl" />
-                <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-violet-500/20 rounded-full blur-3xl" />
-                <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl" />
+                <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/15 rounded-full blur-3xl" />
+                <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-slate-500/15 rounded-full blur-3xl" />
+                <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
 
                 {/* Floating shapes */}
                 <div className="absolute top-[12%] left-[15%] w-20 h-20 border-2 border-white/10 rounded-2xl -rotate-12 animate-[spin_25s_linear_infinite]" />
@@ -366,13 +352,13 @@ export default function RegisterPage() {
                     {/* Center — Hero */}
                     <div className="max-w-lg">
                         <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-8">
-                            <Heart className="w-4 h-4 text-pink-300 fill-pink-300" />
+                            <Heart className="w-4 h-4 text-blue-300 fill-blue-300" />
                             <span className="text-white/90 text-sm font-medium">100K+ khách hàng tin tưởng</span>
                         </div>
                         <h1 className="text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-6">
                             Gia nhập
                             <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-200 to-yellow-200">
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-cyan-200">
                                 cộng đồng!
                             </span>
                         </h1>
@@ -383,9 +369,9 @@ export default function RegisterPage() {
                         {/* Benefit cards */}
                         <div className="space-y-3 mt-10">
                             {[
-                                { icon: Gift, label: 'Giảm 10% đơn hàng đầu tiên', color: 'from-pink-500/20 to-rose-500/20' },
+                                { icon: Gift, label: 'Giảm 10% đơn hàng đầu tiên', color: 'from-blue-500/20 to-cyan-500/20' },
                                 { icon: Zap, label: 'Tích điểm đổi quà hấp dẫn', color: 'from-amber-500/20 to-yellow-500/20' },
-                                { icon: Bell, label: 'Thông báo ưu đãi độc quyền', color: 'from-violet-500/20 to-indigo-500/20' },
+                                { icon: Bell, label: 'Thông báo ưu đãi độc quyền', color: 'from-indigo-500/20 to-slate-500/20' },
                             ].map(({ icon: Icon, label, color }, idx) => (
                                 <div
                                     key={idx}

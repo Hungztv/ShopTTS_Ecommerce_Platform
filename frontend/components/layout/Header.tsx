@@ -256,7 +256,7 @@ export default function Header() {
                       {/* Seller Center link - only for Seller/Admin */}
                       {user?.roles?.some(r => r.toLowerCase() === 'seller' || r.toLowerCase() === 'admin') && (
                         <Link
-                          href="/seller/shop"
+                          href="/seller/analytics"
                           className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all font-medium"
                           onClick={() => setIsUserMenuOpen(false)}
                         >

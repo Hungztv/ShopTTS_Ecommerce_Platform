@@ -68,13 +68,13 @@ export default function AuthCallbackPage() {
     }, [setUserFromTokens, router]);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
             <div className="max-w-md w-full mx-4">
                 <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 text-center">
                     {status === 'loading' && (
                         <>
-                            <div className="w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-5">
-                                <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
+                            <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-5">
+                                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                             </div>
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                                 Đang xác thực...
@@ -112,7 +112,7 @@ export default function AuthCallbackPage() {
                             </p>
                             <button
                                 onClick={() => router.push('/login')}
-                                className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors"
+                                className="px-6 py-3 bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-xl transition-colors"
                             >
                                 Quay lại đăng nhập
                             </button>
