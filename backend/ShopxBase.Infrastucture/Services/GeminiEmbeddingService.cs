@@ -53,8 +53,8 @@ public class GeminiEmbeddingService : IEmbeddingService
             ?? configuration["Gemini:EmbeddingModel"];
 
         _candidateModels = string.IsNullOrWhiteSpace(configuredModel)
-            ? new[] { "models/embedding-001", "models/text-embedding-004", "models/gemini-embedding-001" }
-            : new[] { configuredModel!, "models/embedding-001", "models/text-embedding-004", "models/gemini-embedding-001" };
+            ? new[] { "models/gemini-embedding-001", "models/gemini-embedding-2-preview", "models/text-embedding-004" }
+            : new[] { configuredModel!, "models/gemini-embedding-001", "models/gemini-embedding-2-preview" };
     }
 
     public async Task<float[]?> EmbedAsync(string text)

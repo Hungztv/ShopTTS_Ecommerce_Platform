@@ -23,14 +23,14 @@ public class ChatBotController : ControllerBase
     private readonly IUserBehaviorService _behaviorService;
 
     private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private const string MODEL = "llama-3.3-70b-versatile";
+    private const string DEFAULT_MODEL = "openai/gpt-oss-120b";
 
-    // Fallback models when primary model hits rate limit
-    private static readonly string[] FALLBACK_MODELS = new[]
+    // Fallback models when primary model fails or hits rate limit
+    private static readonly string[] DEFAULT_FALLBACK_MODELS = new[]
     {
-        "llama-3.1-8b-instant",
-        "gemma2-9b-it",
-        "mixtral-8x7b-32768"
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+        "groq/compound-mini"
     };
 
     public ChatBotController(
@@ -200,7 +200,7 @@ public class ChatBotController : ControllerBase
                     products = products.Select(MapProductResponse),
                     suggestions,
                     intent = intent.ToString(),
-                    model = response.Model ?? MODEL,
+                    model = response.Model ?? GetModelsToTry().First(),
                     usage = response.Usage
                 }
             });
@@ -352,70 +352,70 @@ public class ChatBotController : ControllerBase
             var categories = await _productService.GetAvailableCategoriesAsync();
             var messages = BuildMessagesWithContext(request, products, categories, extraContext, intent);
 
-            // Try primary model first, fallback on rate limit
-            var modelsToTry = new List<string> { MODEL };
-            modelsToTry.AddRange(FALLBACK_MODELS);
+            // Try primary model first, fallback on error or rate limit
+            var modelsToTry = GetModelsToTry();
 
             HttpResponseMessage? httpResponse = null;
             string? usedModel = null;
 
             foreach (var model in modelsToTry)
             {
-                var client = _httpClientFactory.CreateClient();
-                client.DefaultRequestHeaders.Clear();
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-                client.Timeout = TimeSpan.FromSeconds(45);
-
-                var requestBody = new Dictionary<string, object>
+                try
                 {
-                    ["model"] = model,
-                    ["messages"] = messages,
-                    ["temperature"] = 0.7,
-                    ["max_tokens"] = 4096,
-                    ["stream"] = true
-                };
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Clear();
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                    client.Timeout = TimeSpan.FromSeconds(45);
 
-                var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                });
+                    var requestBody = new Dictionary<string, object>
+                    {
+                        ["model"] = model,
+                        ["messages"] = messages,
+                        ["temperature"] = 0.7,
+                        ["max_tokens"] = 4096,
+                        ["stream"] = true
+                    };
 
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, GROQ_API_URL)
-                {
-                    Content = new StringContent(json, Encoding.UTF8, "application/json")
-                };
+                    var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    });
 
-                httpResponse = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+                    var httpRequest = new HttpRequestMessage(HttpMethod.Post, GROQ_API_URL)
+                    {
+                        Content = new StringContent(json, Encoding.UTF8, "application/json")
+                    };
 
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    usedModel = model;
-                    if (model != MODEL)
-                        _logger.LogInformation("GROQ stream: Using fallback model {Model}", model);
-                    break;
-                }
+                    httpResponse = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
 
-                // On rate limit (429), try next model
-                if (httpResponse.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                {
-                    _logger.LogWarning("GROQ stream rate limited on {Model}, trying fallback...", model);
+                    if (httpResponse.IsSuccessStatusCode)
+                    {
+                        usedModel = model;
+                        if (model != modelsToTry.First())
+                            _logger.LogInformation("GROQ stream: Using fallback model {Model}", model);
+                        break;
+                    }
+
+                    // On error or rate limit, log and try next model
+                    var errBody = await httpResponse.Content.ReadAsStringAsync();
+                    _logger.LogWarning("GROQ stream failed on {Model}: {Status} - {Body}. Trying next fallback...",
+                        model, httpResponse.StatusCode, errBody);
+
                     httpResponse.Dispose();
                     httpResponse = null;
-                    continue;
                 }
-
-                // Other errors — stop and report
-                var errBody = await httpResponse.Content.ReadAsStringAsync();
-                _logger.LogError("GROQ streaming error: {Status} - {Body}", httpResponse.StatusCode, errBody);
-                await WriteSSE("error", JsonSerializer.Serialize(new { message = "AI đang gặp sự cố" }));
-                httpResponse.Dispose();
-                return;
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "GROQ stream exception on {Model}. Trying next fallback...", model);
+                    httpResponse?.Dispose();
+                    httpResponse = null;
+                }
             }
 
             if (httpResponse == null || !httpResponse.IsSuccessStatusCode)
             {
-                await WriteSSE("error", JsonSerializer.Serialize(new { message = "AI đang quá tải, vui lòng thử lại sau 1-2 phút" }));
+                await WriteSSE("error", JsonSerializer.Serialize(new { message = "AI đang quá tải hoặc gặp sự cố, vui lòng thử lại sau 1-2 phút" }));
                 return;
             }
 
@@ -424,9 +424,9 @@ public class ChatBotController : ControllerBase
 
             var fullContent = new StringBuilder();
 
-            while (!reader.EndOfStream)
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
             {
-                var line = await reader.ReadLineAsync();
                 if (string.IsNullOrEmpty(line)) continue;
                 if (!line.StartsWith("data: ")) continue;
 
@@ -436,17 +436,17 @@ public class ChatBotController : ControllerBase
                 try
                 {
                     using var doc = JsonDocument.Parse(data);
-                    var delta = doc.RootElement
-                        .GetProperty("choices")[0]
-                        .GetProperty("delta");
-
-                    if (delta.TryGetProperty("content", out var contentProp))
+                    if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                     {
-                        var chunk = contentProp.GetString();
-                        if (!string.IsNullOrEmpty(chunk))
+                        var choice = choices[0];
+                        if (choice.TryGetProperty("delta", out var delta) && delta.TryGetProperty("content", out var contentProp))
                         {
-                            fullContent.Append(chunk);
-                            await WriteSSE("token", chunk);
+                            var chunk = contentProp.GetString();
+                            if (!string.IsNullOrEmpty(chunk))
+                            {
+                                fullContent.Append(chunk);
+                                await WriteSSE("token", chunk);
+                            }
                         }
                     }
                 }
@@ -668,6 +668,30 @@ public class ChatBotController : ControllerBase
             return null;
         }
         return key;
+    }
+
+    private List<string> GetModelsToTry(string? overrideModel = null)
+    {
+        var models = new List<string>();
+        if (!string.IsNullOrEmpty(overrideModel))
+        {
+            models.Add(overrideModel);
+            return models;
+        }
+
+        var configuredModel = Environment.GetEnvironmentVariable("GROQ_MODEL")
+            ?? _configuration["Groq:Model"];
+
+        var primary = !string.IsNullOrWhiteSpace(configuredModel) ? configuredModel.Trim() : DEFAULT_MODEL;
+        models.Add(primary);
+
+        foreach (var fallback in DEFAULT_FALLBACK_MODELS)
+        {
+            if (!models.Contains(fallback, StringComparer.OrdinalIgnoreCase))
+                models.Add(fallback);
+        }
+
+        return models;
     }
 
     private string? GetUserId()
@@ -1126,85 +1150,77 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
         return (clean.TrimEnd(), suggestions.Distinct().ToArray());
     }
 
-    // ── GROQ API call (with fallback models on rate limit) ──
+    // ── GROQ API call (with fallback models on error or rate limit) ──
     private async Task<(GroqResponse? Response, string? ErrorCode)> CallGroqAsync(
         string apiKey, List<GroqMessage> messages, string? overrideModel = null)
     {
-        var modelsToTry = new List<string>();
-        if (!string.IsNullOrEmpty(overrideModel))
-            modelsToTry.Add(overrideModel);
-        else
-        {
-            modelsToTry.Add(MODEL);
-            modelsToTry.AddRange(FALLBACK_MODELS);
-        }
+        var modelsToTry = GetModelsToTry(overrideModel);
 
         string? lastErrorCode = null;
         string? lastErrorBody = null;
 
         foreach (var model in modelsToTry)
         {
-            var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Clear();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-            client.Timeout = TimeSpan.FromSeconds(45);
-
-            var requestBody = new Dictionary<string, object>
-            {
-                ["model"] = model,
-                ["messages"] = messages,
-                ["temperature"] = 0.7,
-                ["max_tokens"] = 4096,
-                ["stream"] = false
-            };
-
-            var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(GROQ_API_URL, content);
-            var body = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                var result = JsonSerializer.Deserialize<GroqResponse>(body, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                if (model != MODEL)
-                    _logger.LogInformation("GROQ: Used fallback model {Model} (primary was rate-limited)", model);
-
-                return (result, null);
-            }
-
-            // Parse error code
-            lastErrorBody = body;
             try
             {
-                using var errDoc = JsonDocument.Parse(body);
-                lastErrorCode = errDoc.RootElement.GetProperty("error").GetProperty("code").GetString();
-            }
-            catch { lastErrorCode = null; }
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                client.Timeout = TimeSpan.FromSeconds(45);
 
-            // Only retry with fallback on rate limit (429)
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                var requestBody = new Dictionary<string, object>
+                {
+                    ["model"] = model,
+                    ["messages"] = messages,
+                    ["temperature"] = 0.7,
+                    ["max_tokens"] = 4096,
+                    ["stream"] = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                });
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await client.PostAsync(GROQ_API_URL, content);
+                var body = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<GroqResponse>(body, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (model != modelsToTry.First())
+                        _logger.LogInformation("GROQ: Used fallback model {Model}", model);
+
+                    return (result, null);
+                }
+
+                // Parse error code
+                lastErrorBody = body;
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(body);
+                    lastErrorCode = errDoc.RootElement.GetProperty("error").GetProperty("code").GetString();
+                }
+                catch { lastErrorCode = null; }
+
+                _logger.LogWarning("GROQ failed on model {Model}: {Status} - {Body}. Trying next fallback...",
+                    model, response.StatusCode, body);
+            }
+            catch (Exception ex)
             {
-                _logger.LogWarning("GROQ rate limited on model {Model}, trying next fallback...", model);
-                continue;
+                _logger.LogWarning(ex, "GROQ exception on model {Model}. Trying next fallback...", model);
             }
-
-            // For other errors, don't try fallback
-            _logger.LogError("GROQ API error: {Status} - {Body}", response.StatusCode, body);
-            return (null, lastErrorCode);
         }
 
         // All models exhausted
-        _logger.LogError("GROQ API: All models rate-limited. Last error: {Body}", lastErrorBody);
-        return (null, lastErrorCode ?? "rate_limit_exceeded");
+        _logger.LogError("GROQ API: All models failed. Last error: {Body}", lastErrorBody);
+        return (null, lastErrorCode ?? "all_models_failed");
     }
 
     // ── SSE helper ── (multiline-safe: each line gets its own "data: " prefix per SSE spec)

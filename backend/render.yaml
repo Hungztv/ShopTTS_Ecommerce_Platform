@@ -53,6 +53,8 @@ services:
       # GROQ API (ChatBot)
       - key: GROQ_API_KEY
         sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
       # Gemini API (Embedding)
       - key: GEMINI_API_KEY
         sync: false
