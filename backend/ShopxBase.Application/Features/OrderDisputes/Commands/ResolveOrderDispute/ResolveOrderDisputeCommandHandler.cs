@@ -39,24 +39,11 @@ public class ResolveOrderDisputeCommandHandler : IRequestHandler<ResolveOrderDis
 
             if (order != null)
             {
+                var prevStatus = order.Status;
                 order.Status = (int)OrderStatus.Completed; // 3
 
-                // Transfer from PendingBalance to AvailableBalance for the Shop
-                var orderDetails = await _unitOfWork.OrderDetails.FindAsync(od => od.OrderId == order.Id);
-                var shopId = orderDetails?.FirstOrDefault()?.ShopId;
-
-                if (shopId.HasValue && shopId.Value > 0)
-                {
-                    var wallets = await _unitOfWork.ShopWallets.FindAsync(w => w.ShopId == shopId.Value);
-                    var wallet = wallets.FirstOrDefault();
-
-                    if (wallet != null)
-                    {
-                        wallet.PendingBalance = Math.Max(0, wallet.PendingBalance - order.Total);
-                        wallet.AvailableBalance += order.Total;
-                        await _unitOfWork.ShopWallets.UpdateAsync(wallet);
-                    }
-                }
+                await ShopxBase.Application.Features.ShopWallets.Services.ShopWalletSettlementHelper
+                    .ProcessOrderSettlementAsync(_unitOfWork, order, prevStatus, (int)OrderStatus.Completed);
             }
         }
 

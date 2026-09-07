@@ -55,7 +55,12 @@ public class UpdateSellerOrderStatusCommandHandler : IRequestHandler<UpdateSelle
 
         // Update status — need to re-fetch with tracking
         var orderToUpdate = await _unitOfWork.Orders.GetByIdAsync(request.OrderId);
+        var prevStatus = orderToUpdate.Status;
         orderToUpdate.Status = newStatus;
+
+        await ShopxBase.Application.Features.ShopWallets.Services.ShopWalletSettlementHelper
+            .ProcessOrderSettlementAsync(_unitOfWork, orderToUpdate, prevStatus, newStatus);
+
         await _unitOfWork.Orders.UpdateAsync(orderToUpdate);
         await Task.Run(() => _unitOfWork.SaveChanges());
 

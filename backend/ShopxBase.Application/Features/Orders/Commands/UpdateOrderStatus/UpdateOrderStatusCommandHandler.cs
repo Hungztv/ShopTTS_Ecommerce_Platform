@@ -43,8 +43,12 @@ public class UpdateOrderStatusCommandHandler : IRequestHandler<UpdateOrderStatus
             await RestoreProductStockAsync(order);
         }
 
-        // 4. Update status
+        // 4. Update status & settle wallet escrow
+        var previousStatus = order.Status;
         order.Status = request.NewStatus;
+
+        await ShopxBase.Application.Features.ShopWallets.Services.ShopWalletSettlementHelper
+            .ProcessOrderSettlementAsync(_unitOfWork, order, previousStatus, request.NewStatus);
 
         // 5. Save changes
         await _unitOfWork.Orders.UpdateAsync(order);

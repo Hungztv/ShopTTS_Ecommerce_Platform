@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Wallet, ShieldCheck, ArrowUpRight, ArrowDownLeft, Clock,
-    CreditCard, AlertCircle, Building2, HelpCircle, CheckCircle2, Lock, Sparkles, Store
+    CreditCard, AlertCircle, Building2, HelpCircle, CheckCircle2, Lock, Sparkles, Store, RefreshCw
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/product-mapper';
 import { sellerShopService, ShopWalletData } from '@/lib/services/seller/shop-service';
@@ -14,53 +14,65 @@ export default function SellerWalletPage() {
     const [shop, setShop] = useState<ShopDto | null>(null);
     const [wallet, setWallet] = useState<ShopWalletData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
 
-    useEffect(() => {
-        const loadWalletData = async () => {
-            try {
-                setLoading(true);
-                const shopData = await sellerShopService.getMyShop();
-                setShop(shopData);
+    const loadWalletData = async () => {
+        try {
+            setRefreshing(true);
+            const shopData = await sellerShopService.getMyShop();
+            setShop(shopData);
 
-                if (shopData) {
-                    const walletData = await sellerShopService.getWallet(shopData.id);
-                    setWallet(walletData);
-                }
-            } catch (error) {
-                console.error('Error loading wallet data:', error);
-            } finally {
-                setLoading(false);
+            if (shopData) {
+                const walletData = await sellerShopService.getWallet(shopData.id);
+                setWallet(walletData);
             }
-        };
+        } catch (error) {
+            console.error('Error loading wallet data:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
 
+    useEffect(() => {
         loadWalletData();
     }, []);
 
-    const handleWithdraw = (e: React.FormEvent) => {
+    const handleWithdraw = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!wallet) return;
 
         const amount = parseFloat(withdrawAmount);
-        if (isNaN(amount) || amount <= 0 || amount > wallet.availableBalance) return;
+        if (isNaN(amount) || amount <= 0 || amount > wallet.availableBalance) {
+            alert('Số tiền rút không hợp lệ hoặc vượt quá số dư khả dụng');
+            return;
+        }
 
         setIsSubmitting(true);
-        setTimeout(() => {
-            setWallet(prev => prev ? ({
-                ...prev,
-                availableBalance: prev.availableBalance - amount,
-                totalWithdrawn: prev.totalWithdrawn + amount
-            }) : null);
-            setIsSubmitting(false);
+        try {
+            const updated = await sellerShopService.withdraw({
+                amount,
+                bankName: wallet.bankName,
+                bankAccountNumber: wallet.bankAccountNumber,
+                bankAccountHolder: wallet.bankAccountHolder,
+            });
+            setWallet(updated);
             setShowWithdrawModal(false);
             setWithdrawAmount('');
-            setSuccessMessage(`Đã gửi yêu cầu rút ${formatPrice(amount)} cho Shop #${shop?.id}! Money sẽ về TK ngân hàng trong 24h.`);
+            setSuccessMessage(`Đã rút thành công ${formatPrice(amount)} từ Ví Shop #${shop?.id}! Tiền đã được trừ khỏi số dư khả dụng.`);
             setTimeout(() => setSuccessMessage(''), 5000);
-        }, 1200);
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            console.error('Error withdrawing:', err);
+            alert(error.response?.data?.message || 'Có lỗi xảy ra khi thực hiện rút tiền');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (loading) {
@@ -117,9 +129,20 @@ export default function SellerWalletPage() {
                     </p>
                 </div>
 
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    Ví chính chủ Shop #{shop.id}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={loadWalletData}
+                        disabled={refreshing}
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-700 disabled:opacity-60"
+                        title="Đối soát & cập nhật số dư ví"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-emerald-600' : ''}`} />
+                        <span>{refreshing ? 'Đang đối soát...' : 'Đối soát ví'}</span>
+                    </button>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        Ví chính chủ Shop #{shop.id}
+                    </div>
                 </div>
             </div>
 
@@ -170,7 +193,7 @@ export default function SellerWalletPage() {
                             {formatPrice(pendingBalance)}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Tiền từ đơn mới giao của Shop #{shop.id}, chờ giải ngân tự động sau 3 ngày.
+                            Tiền từ các đơn đang xử lý / giao hàng của Shop #{shop.id}, tự động giải ngân khi giao thành công.
                         </p>
                     </div>
 
@@ -229,14 +252,92 @@ export default function SellerWalletPage() {
             {/* ══════════════════ TRANSACTIONS TABLE ══════════════════ */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 dark:text-white text-base">Lịch sử Giao dịch Ví Shop #{shop.id}</h3>
-                    <span className="text-xs text-slate-500">Đối soát thời gian thực</span>
+                    <div>
+                        <h3 className="font-bold text-slate-800 dark:text-white text-base">Lịch sử Giao dịch Ví Shop #{shop.id}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Dòng tiền doanh thu đơn hàng và lịch sử rút tiền thực tế</p>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        {wallet?.transactions?.length ?? 0} giao dịch
+                    </span>
                 </div>
 
-                <div className="p-8 text-center text-slate-400 text-sm">
-                    <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Chưa có giao dịch biến động số dư nào cho Shop <strong>{shop.name}</strong>.
-                </div>
+                {wallet?.transactions && wallet.transactions.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-extrabold uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th className="p-4">Thời gian</th>
+                                    <th className="p-4">Loại giao dịch</th>
+                                    <th className="p-4">Mã đơn / Nội dung</th>
+                                    <th className="p-4 text-right">Biến động</th>
+                                    <th className="p-4 text-center">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                                {wallet.transactions.map((tx) => {
+                                    const isPayout = tx.type === 0;
+                                    const isWithdrawal = tx.type === 2;
+                                    return (
+                                        <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                                                {new Date(tx.createdAt).toLocaleString('vi-VN', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </td>
+                                            <td className="p-4">
+                                                {isPayout ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                        <ArrowDownLeft className="w-3.5 h-3.5" />
+                                                        Doanh thu đơn hàng
+                                                    </span>
+                                                ) : isWithdrawal ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                                        <ArrowUpRight className="w-3.5 h-3.5" />
+                                                        Rút tiền
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                                        {tx.typeName || 'Giao dịch khác'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4">
+                                                <p className="text-xs text-slate-900 dark:text-white font-semibold">
+                                                    {tx.description}
+                                                </p>
+                                                {tx.orderId && (
+                                                    <span className="text-[11px] text-slate-400 font-mono">
+                                                        Đơn hàng #{tx.orderId}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-right whitespace-nowrap">
+                                                <span className={`font-mono font-bold text-sm ${isPayout ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                    {isPayout ? '+' : '-'}{formatPrice(Math.abs(tx.amount))}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                                    Thành công
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="p-8 text-center text-slate-400 text-sm">
+                        <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        Chưa có giao dịch biến động số dư nào cho Shop <strong>{shop.name}</strong>.
+                    </div>
+                )}
             </div>
 
             {/* ══════════════════ WITHDRAWAL MODAL ══════════════════ */}

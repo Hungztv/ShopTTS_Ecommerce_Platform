@@ -138,6 +138,12 @@ export default function AdminDisputesPage() {
                     action,
                     resolutionNote,
                 });
+            } else if (selectedDispute.shopId > 0) {
+                try {
+                    await api.get(`/shops/reconcile/${selectedDispute.shopId}`);
+                } catch (e) {
+                    console.warn('Reconciling wallet in demo mode:', e);
+                }
             }
 
             // Update local state for interactive demo experience

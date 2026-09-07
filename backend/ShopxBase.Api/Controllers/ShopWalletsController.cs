@@ -42,4 +42,29 @@ public class ShopWalletsController : ControllerBase
 
         return Ok(wallet);
     }
+
+    /// <summary>
+    /// Đối soát và làm mới số dư Ví cho Shop theo ID
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("reconcile/{shopId:int}")]
+    public async Task<ActionResult<ShopWalletDto>> Reconcile(int shopId)
+    {
+        var wallet = await _mediator.Send(new GetShopWalletQuery(shopId));
+        if (wallet == null) return NotFound($"Không tìm thấy Shop #{shopId}");
+
+        return Ok(wallet);
+    }
+
+    /// <summary>
+    /// Rút tiền từ Ví Shop về Tài khoản Ngân hàng
+    /// </summary>
+    [HttpPost("me/wallet/withdraw")]
+    public async Task<ActionResult<ShopWalletDto>> RequestWithdrawal([FromBody] ShopxBase.Application.Features.ShopWallets.Commands.RequestWithdrawal.RequestWithdrawalCommand command)
+    {
+        var updatedWallet = await _mediator.Send(command);
+        if (updatedWallet == null) return BadRequest("Không thể thực hiện rút tiền");
+
+        return Ok(updatedWallet);
+    }
 }

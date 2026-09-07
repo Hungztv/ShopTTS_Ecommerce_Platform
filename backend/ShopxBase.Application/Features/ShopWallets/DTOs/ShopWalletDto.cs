@@ -10,4 +10,5 @@ public class ShopWalletDto
     public string? BankName { get; set; }
     public string? BankAccountNumber { get; set; }
     public string? BankAccountHolder { get; set; }
+    public List<WalletTransactionDto> Transactions { get; set; } = new();
 }

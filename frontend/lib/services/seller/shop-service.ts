@@ -1,6 +1,17 @@
 import api, { ApiResponse } from '../admin/api';
 import type { ShopDto, UpdateShopRequest } from '@/types/shop';
 
+export interface WalletTransactionItem {
+  id: number;
+  shopId: number;
+  orderId?: number;
+  amount: number;
+  type: number;
+  typeName?: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface ShopWalletData {
   id: number;
   shopId: number;
@@ -10,6 +21,7 @@ export interface ShopWalletData {
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountHolder?: string;
+  transactions?: WalletTransactionItem[];
 }
 
 export const sellerShopService = {
@@ -48,5 +60,16 @@ export const sellerShopService = {
       ...data,
     });
     return res.data.data;
+  },
+
+  /** Rút tiền từ ví shop về tài khoản ngân hàng */
+  async withdraw(data: {
+    amount: number;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+  }): Promise<ShopWalletData> {
+    const res = await api.post<ShopWalletData>('/shops/me/wallet/withdraw', data);
+    return res.data;
   },
 };
