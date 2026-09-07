@@ -20,6 +20,8 @@ export interface ChatProduct {
     ratingCount: number;
     soldOut: number;
     isInStock: boolean;
+    shortDescription?: string;
+    highlightBadge?: string;
 }
 
 export interface ChatMessage {

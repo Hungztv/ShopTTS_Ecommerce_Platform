@@ -50,25 +50,21 @@ import {
 const GREETING_MESSAGE: ChatMessage = {
   role: "assistant",
   content:
-    "Xin chào! 👋 Tôi là trợ lý mua sắm AI của **ShopTTS**.\n\nTôi có thể giúp bạn:\n- 🔍 Tìm kiếm sản phẩm\n- 💰 So sánh giá cả\n- 🏷️ Tìm mã giảm giá\n- 📦 Tra cứu đơn hàng\n- 🔥 Xem sản phẩm trending\n\nBạn cần tôi giúp gì?",
+    "Xin chào! 👋 Tôi là chuyên viên tư vấn mua sắm AI của **ShopTTS**.\n\nTôi có thể giúp bạn:\n- 🎯 **Tư vấn chọn sản phẩm** phù hợp với nhu cầu và ngân sách\n- ⚖️ **So sánh ưu/nhược điểm** giữa các dòng sản phẩm\n- 🏷️ **Săn mã giảm giá** và ưu đãi tốt nhất\n- 📦 **Tra cứu đơn hàng** & hỗ trợ kỹ thuật\n\nBạn đang tìm kiếm sản phẩm nào hoặc cần tư vấn ngân sách bao nhiêu?",
   timestamp: new Date(),
   suggestions: [
-    "Tìm điện thoại Samsung",
-    "Sản phẩm trending hôm nay",
-    "Mã giảm giá có sẵn",
-    "Laptop dưới 20 triệu",
+    "Tư vấn điện thoại tầm 10 củ",
+    "Laptop sinh viên học tập tốt",
+    "Sản phẩm bán chạy nhất tuần",
+    "Có mã giảm giá nào không?",
   ],
 };
 
 const QUICK_ACTIONS = [
-  { icon: TrendingUp, label: "Trending", message: "Sản phẩm trending hôm nay" },
-  { icon: Tag, label: "Giảm giá", message: "Có mã giảm giá nào không?" },
-  { icon: Package, label: "Đơn hàng", message: "Tra cứu đơn hàng của tôi" },
-  {
-    icon: Sparkles,
-    label: "Gợi ý",
-    message: "Gợi ý sản phẩm phổ biến nhất",
-  },
+  { icon: Sparkles, label: "Gợi ý hot", message: "Gợi ý cho tôi các sản phẩm bán chạy và đáng mua nhất hiện nay" },
+  { icon: TrendingUp, label: "Điện thoại hot", message: "Tư vấn điện thoại bán chạy nhất, cấu hình tốt trong tầm giá" },
+  { icon: Tag, label: "Mã giảm giá", message: "Có những mã giảm giá coupon nào đang áp dụng?" },
+  { icon: Package, label: "Laptop sinh viên", message: "Tư vấn laptop văn phòng học tập giá tốt tầm 10-15 triệu" },
 ];
 
 // ══════════════════════════════════════════
@@ -120,17 +116,19 @@ function formatTime(date: Date) {
 function ProductCard({
   product,
   onAddToCart,
+  onConsult,
 }: {
   product: ChatProduct;
   onAddToCart?: (id: number) => void;
+  onConsult?: (query: string) => void;
 }) {
   return (
-    <div className="min-w-[200px] max-w-[200px] bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+    <div className="min-w-[210px] max-w-[210px] bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
       <a
         href={`/products/${product.slug}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="block"
+        className="block relative"
       >
         <div className="relative w-full h-[140px] bg-gray-50">
           <img
@@ -139,6 +137,19 @@ function ProductCard({
             className="w-full h-full object-contain p-2"
             loading="lazy"
           />
+          {product.highlightBadge && (
+            <div className="absolute top-2 left-2 z-10">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm text-white ${
+                product.highlightBadge.includes("Bán chạy")
+                  ? "bg-gradient-to-r from-amber-500 to-rose-500"
+                  : product.highlightBadge.includes("Đánh giá")
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-600"
+                  : "bg-gradient-to-r from-blue-600 to-indigo-600"
+              }`}>
+                {product.highlightBadge}
+              </span>
+            </div>
+          )}
           {!product.isInStock && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
               <span className="text-white text-xs font-semibold bg-red-500 px-2 py-1 rounded">
@@ -153,16 +164,16 @@ function ProductCard({
           href={`/products/${product.slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-medium text-gray-800 line-clamp-2 hover:text-blue-600 transition-colors leading-snug"
+          className="text-xs font-semibold text-gray-800 line-clamp-2 hover:text-violet-600 transition-colors leading-snug"
         >
           {product.name}
         </a>
         <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-500">
-          <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+          <span className="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded font-medium">
             {product.brandName}
           </span>
           {product.shopName && (
-            <span className="truncate">{product.shopName}</span>
+            <span className="truncate text-gray-400">{product.shopName}</span>
           )}
         </div>
         <div className="mt-auto pt-2">
@@ -172,28 +183,45 @@ function ProductCard({
           <div className="flex items-center gap-1 mt-0.5">
             <div className="flex items-center gap-0.5">
               <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-              <span className="text-[10px] text-gray-600">
+              <span className="text-[10px] text-gray-600 font-medium">
                 {product.averageScore.toFixed(1)}
               </span>
             </div>
-            <span className="text-[10px] text-gray-400">|</span>
+            <span className="text-[10px] text-gray-300">|</span>
             <span className="text-[10px] text-gray-500">
               Đã bán {product.soldOut}
             </span>
           </div>
         </div>
-        {onAddToCart && product.isInStock && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product.id);
-            }}
-            className="mt-2 w-full flex items-center justify-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-medium py-1.5 rounded-lg hover:from-orange-600 hover:to-red-600 transition-all active:scale-95"
-          >
-            <ShoppingCart className="w-3 h-3" />
-            Thêm vào giỏ
-          </button>
-        )}
+
+        {/* Action Buttons */}
+        <div className="mt-2.5 flex flex-col gap-1.5">
+          {onConsult && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onConsult(`Tư vấn chi tiết và ưu nhược điểm của sản phẩm "${product.name}"`);
+              }}
+              className="w-full flex items-center justify-center gap-1 bg-violet-50 text-violet-700 hover:bg-violet-100 text-xs font-medium py-1.5 rounded-lg border border-violet-100 transition-all active:scale-95"
+              title="Hỏi AI tư vấn thêm về sản phẩm này"
+            >
+              <Sparkles className="w-3 h-3 text-violet-600" />
+              Tư vấn thêm
+            </button>
+          )}
+          {onAddToCart && product.isInStock && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product.id);
+              }}
+              className="w-full flex items-center justify-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-medium py-1.5 rounded-lg hover:from-orange-600 hover:to-red-600 transition-all active:scale-95 shadow-sm"
+            >
+              <ShoppingCart className="w-3 h-3" />
+              Thêm vào giỏ
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -206,9 +234,11 @@ function ProductCard({
 function ProductCarousel({
   products,
   onAddToCart,
+  onConsult,
 }: {
   products: ChatProduct[];
   onAddToCart?: (id: number) => void;
+  onConsult?: (query: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -229,7 +259,7 @@ function ProductCarousel({
     const el = scrollRef.current;
     if (!el) return;
     el.scrollBy({
-      left: dir === "left" ? -220 : 220,
+      left: dir === "left" ? -230 : 230,
       behavior: "smooth",
     });
     setTimeout(updateScrollButtons, 400);
@@ -238,12 +268,19 @@ function ProductCarousel({
   if (!products.length) return null;
 
   return (
-    <div className="relative mt-2 group">
+    <div className="relative mt-2.5 group">
+      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5 px-0.5">
+        <span className="flex items-center gap-1.5 text-violet-700">
+          <Sparkles className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
+          Sản phẩm gợi ý ({products.length}):
+        </span>
+      </div>
+
       {/* Left arrow */}
       {canScrollLeft && (
         <button
           onClick={() => scroll("left")}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-md rounded-full p-1 hover:bg-white transition-opacity opacity-0 group-hover:opacity-100"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-md rounded-full p-1.5 hover:bg-white transition-opacity opacity-0 group-hover:opacity-100"
         >
           <ChevronLeft className="w-4 h-4 text-gray-600" />
         </button>
@@ -252,7 +289,7 @@ function ProductCarousel({
       {canScrollRight && (
         <button
           onClick={() => scroll("right")}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-md rounded-full p-1 hover:bg-white transition-opacity opacity-0 group-hover:opacity-100"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-md rounded-full p-1.5 hover:bg-white transition-opacity opacity-0 group-hover:opacity-100"
         >
           <ChevronRight className="w-4 h-4 text-gray-600" />
         </button>
@@ -265,7 +302,11 @@ function ProductCarousel({
       >
         {products.map((p) => (
           <div key={p.id} className="snap-start">
-            <ProductCard product={p} onAddToCart={onAddToCart} />
+            <ProductCard
+              product={p}
+              onAddToCart={onAddToCart}
+              onConsult={onConsult}
+            />
           </div>
         ))}
       </div>
@@ -1034,6 +1075,7 @@ export default function ChatBotWidget() {
                     <ProductCarousel
                       products={msg.products}
                       onAddToCart={handleAddToCart}
+                      onConsult={handleSuggestionClick}
                     />
                   )}
 

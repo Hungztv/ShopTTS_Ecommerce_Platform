@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace ShopxBase.Api.Controllers;
 
@@ -68,72 +69,15 @@ public class ChatBotController : ControllerBase
 
         try
         {
-            // ── Intent detection + smart search ──
+            // ── Intent detection + smart product & context resolution ──
             var intent = DetectIntent(request.Message);
-            var products = new List<ChatProductInfo>();
-            var extraContext = "";
-
-            switch (intent)
-            {
-                case ChatIntent.SearchProduct:
-                    products = await SmartSearchAsync(request.Message);
-                    break;
-
-                case ChatIntent.PriceRange:
-                    var (min, max) = ExtractPriceRange(request.Message);
-                    products = await _productService.GetProductsByPriceRangeAsync(min, max, null, 8);
-                    if (!products.Any())
-                        products = await SmartSearchAsync(request.Message);
-                    break;
-
-                case ChatIntent.Trending:
-                    products = await _productService.GetTrendingProductsAsync(null, 8);
-                    break;
-
-                case ChatIntent.OrderTracking:
-                    extraContext = await GetOrderContextAsync(request.Message);
-                    break;
-
-                case ChatIntent.CouponInquiry:
-                    extraContext = await GetCouponContextAsync();
-                    break;
-
-                case ChatIntent.CategoryBrowse:
-                    var cats = await _productService.GetAvailableCategoriesAsync();
-                    extraContext = $"DANH MỤC SẢN PHẨM CÓ SẴN ({cats.Count} danh mục): {string.Join(", ", cats)}";
-                    break;
-
-                case ChatIntent.Comparison:
-                    products = await ComparisonSearchAsync(request.Message);
-                    extraContext = "Khách hàng muốn SO SÁNH sản phẩm. Hãy so sánh chi tiết CÁC SẢN PHẨM CÓ TRONG DỮ LIỆU (giá, thông số, ưu nhược điểm). CHỈ so sánh sản phẩm có trong dữ liệu.";
-                    break;
-
-                case ChatIntent.Recommendation:
-                    var recUserId = GetUserId();
-                    var recProducts = await _behaviorService.GetPersonalizedRecommendationsAsync(recUserId, request.SessionId, 8);
-                    if (recProducts.Any())
-                    {
-                        products = recProducts;
-                        extraContext = "🎯 ĐÂY LÀ SẢN PHẨM ĐƯỢC CÁ NHÂN HÓA dựa trên lịch sử duyệt web, tìm kiếm và mua hàng của khách. " +
-                                      "Hãy giới thiệu chúng một cách TỰ NHIÊN, giải thích TẠI SAO phù hợp với khách (ví dụ: 'Dựa trên sở thích của bạn về thương hiệu X...')";
-                    }
-                    else
-                    {
-                        products = await _productService.GetTrendingProductsAsync(null, 8);
-                        extraContext = "Chưa có đủ dữ liệu cá nhân hóa, đây là sản phẩm phổ biến nhất.";
-                    }
-                    break;
-
-                case ChatIntent.General:
-                default:
-                    // Don't search products for general/greeting messages
-                    break;
-            }
+            var userId = GetUserId();
+            var (products, extraContext) = await ResolveContextAndProductsAsync(
+                request.Message, intent, request.SessionId, userId);
 
             // ── Inject user behavior context for all intents ──
             try
             {
-                var userId = GetUserId();
                 var behaviorContext = await _behaviorService.GetRecommendationContextAsync(userId, request.SessionId);
                 if (!string.IsNullOrEmpty(behaviorContext))
                     extraContext = string.IsNullOrEmpty(extraContext)
@@ -241,63 +185,15 @@ public class ChatBotController : ControllerBase
 
         try
         {
-            // ── Pre-search products ──
+            // ── Intent detection + smart product & context resolution ──
             var intent = DetectIntent(request.Message);
-            var products = new List<ChatProductInfo>();
-            var extraContext = "";
-
-            switch (intent)
-            {
-                case ChatIntent.SearchProduct:
-                    products = await SmartSearchAsync(request.Message);
-                    break;
-                case ChatIntent.PriceRange:
-                    var (min, max) = ExtractPriceRange(request.Message);
-                    products = await _productService.GetProductsByPriceRangeAsync(min, max, null, 8);
-                    if (!products.Any()) products = await SmartSearchAsync(request.Message);
-                    break;
-                case ChatIntent.Trending:
-                    products = await _productService.GetTrendingProductsAsync(null, 8);
-                    break;
-                case ChatIntent.OrderTracking:
-                    extraContext = await GetOrderContextAsync(request.Message);
-                    break;
-                case ChatIntent.CouponInquiry:
-                    extraContext = await GetCouponContextAsync();
-                    break;
-                case ChatIntent.CategoryBrowse:
-                    var cats = await _productService.GetAvailableCategoriesAsync();
-                    extraContext = $"DANH MỤC: {string.Join(", ", cats)}";
-                    break;
-                case ChatIntent.Comparison:
-                    products = await ComparisonSearchAsync(request.Message);
-                    extraContext = "Khách muốn SO SÁNH sản phẩm. CHỈ so sánh sản phẩm có trong dữ liệu.";
-                    break;
-                case ChatIntent.Recommendation:
-                    var sRecUserId = GetUserId();
-                    var sRecProducts = await _behaviorService.GetPersonalizedRecommendationsAsync(sRecUserId, request.SessionId, 8);
-                    if (sRecProducts.Any())
-                    {
-                        products = sRecProducts;
-                        extraContext = "🎯 ĐÂY LÀ SẢN PHẨM ĐƯỢC CÁ NHÂN HÓA dựa trên lịch sử duyệt web, tìm kiếm và mua hàng của khách. " +
-                                      "Hãy giới thiệu chúng một cách TỰ NHIÊN, giải thích TẠI SAO phù hợp với khách.";
-                    }
-                    else
-                    {
-                        products = await _productService.GetTrendingProductsAsync(null, 8);
-                        extraContext = "Chưa có đủ dữ liệu cá nhân hóa, đây là sản phẩm phổ biến nhất.";
-                    }
-                    break;
-                case ChatIntent.General:
-                default:
-                    // Don't search products for general/greeting messages
-                    break;
-            }
+            var sUserId = GetUserId();
+            var (products, extraContext) = await ResolveContextAndProductsAsync(
+                request.Message, intent, request.SessionId, sUserId);
 
             // ── Inject user behavior context for all intents ──
             try
             {
-                var sUserId = GetUserId();
                 var sBehaviorCtx = await _behaviorService.GetRecommendationContextAsync(sUserId, request.SessionId);
                 if (!string.IsNullOrEmpty(sBehaviorCtx))
                     extraContext = string.IsNullOrEmpty(extraContext)
@@ -700,41 +596,173 @@ public class ChatBotController : ControllerBase
             ?? User.FindFirstValue("sub");
     }
 
+    // ── Unified Smart Search & Recommendation ──
+    private async Task<(List<ChatProductInfo> Products, string ExtraContext)> ResolveContextAndProductsAsync(
+        string message, ChatIntent intent, string? sessionId, string? userId)
+    {
+        var (minPrice, maxPrice) = ExtractPriceRange(message);
+        var products = new List<ChatProductInfo>();
+        var extraContext = "";
+
+        switch (intent)
+        {
+            case ChatIntent.Greeting:
+            case ChatIntent.StorePolicy:
+                // Người dùng chào hỏi hoặc hỏi chính sách cửa hàng: KHÔNG xổ card sản phẩm
+                products = new List<ChatProductInfo>();
+                break;
+
+            case ChatIntent.OrderTracking:
+                extraContext = await GetOrderContextAsync(message);
+                products = new List<ChatProductInfo>();
+                break;
+
+            case ChatIntent.CouponInquiry:
+                extraContext = await GetCouponContextAsync();
+                products = new List<ChatProductInfo>();
+                break;
+
+            case ChatIntent.CategoryBrowse:
+                var cats = await _productService.GetAvailableCategoriesAsync();
+                extraContext = $"DANH MỤC SẢN PHẨM CÓ SẴN ({cats.Count} danh mục): {string.Join(", ", cats)}";
+                products = await _productService.GetTrendingProductsAsync(null, 6);
+                break;
+
+            case ChatIntent.Comparison:
+                products = await ComparisonSearchAsync(message);
+                extraContext = "Khách hàng muốn SO SÁNH sản phẩm. Hãy đối chiếu chi tiết các sản phẩm trong dữ liệu (Giá bán, Cấu hình/Thông số, Ưu điểm và Khuyên nên chọn sản phẩm nào cho ai).";
+                break;
+
+            case ChatIntent.Trending:
+                // Thử tìm theo từ khóa trước (nếu người dùng hỏi 'laptop bán chạy' / 'điện thoại hot')
+                products = await _productService.SmartSearchAsync(message, minPrice, maxPrice, 8);
+                if (!products.Any())
+                {
+                    products = await _productService.GetTrendingProductsAsync(null, 8);
+                }
+                extraContext = "🔥 ĐÂY LÀ CÁC SẢN PHẨM BÁN CHẠY NHẤT & ĐƯỢC YÊU THÍCH NHẤT TRÊN HỆ THỐNG.";
+                break;
+
+            case ChatIntent.Recommendation:
+            case ChatIntent.PriceRange:
+            case ChatIntent.SearchProduct:
+            default:
+                // Tìm kiếm thông minh hướng mục tiêu: đúng danh mục, đúng tầm giá, đúng nhu cầu (gaming, pin trâu...)
+                products = await _productService.SmartSearchAsync(message, minPrice, maxPrice, 8);
+
+                // Nếu hỏi gợi ý chung mà không nêu danh mục/sản phẩm, lấy recommendation từ hành vi
+                if (!products.Any() && (intent == ChatIntent.Recommendation || message.Length < 15))
+                {
+                    var recProducts = await _behaviorService.GetPersonalizedRecommendationsAsync(userId, sessionId, 6);
+                    if (recProducts.Any())
+                    {
+                        products = recProducts;
+                        extraContext = "🎯 ĐÂY LÀ SẢN PHẨM ĐƯỢC CÁ NHÂN HÓA dựa trên lịch sử mua sắm của khách.";
+                    }
+                }
+
+                if (products.Any() && (minPrice.HasValue || maxPrice.HasValue))
+                {
+                    var priceDesc = minPrice.HasValue && maxPrice.HasValue
+                        ? $"từ {minPrice:N0}đ đến {maxPrice:N0}đ"
+                        : minPrice.HasValue
+                            ? $"từ {minPrice:N0}đ trở lên"
+                            : $"dưới {maxPrice:N0}đ";
+                    extraContext = $"💰 Khách hàng đang tìm sản phẩm trong khoảng giá {priceDesc}. Hãy ưu tiên giới thiệu các sản phẩm đúng tầm giá này.";
+                }
+                break;
+        }
+
+        // Tự động gán HighlightBadge cho danh sách sản phẩm
+        AssignHighlightBadges(products);
+
+        return (products, extraContext);
+    }
+
+    private static void AssignHighlightBadges(List<ChatProductInfo> products)
+    {
+        if (products == null || !products.Any()) return;
+
+        var maxSold = products.Max(p => p.SoldOut);
+        var minPrice = products.Min(p => p.Price);
+        var maxScore = products.Max(p => p.AverageScore);
+
+        foreach (var p in products)
+        {
+            if (maxSold > 5 && p.SoldOut == maxSold)
+            {
+                p.HighlightBadge = "🔥 Bán chạy nhất";
+            }
+            else if (maxScore >= 4.7m && p.AverageScore == maxScore)
+            {
+                p.HighlightBadge = "⭐ Đánh giá cao";
+            }
+            else if (products.Count > 1 && p.Price == minPrice)
+            {
+                p.HighlightBadge = "💰 Giá tốt nhất";
+            }
+            else if (p.RatingCount >= 10)
+            {
+                p.HighlightBadge = "👍 Đáng mua";
+            }
+        }
+    }
+
     // ── Intent Detection ──
     private static ChatIntent DetectIntent(string message)
     {
         var lower = message.ToLower().Trim();
 
-        // Order tracking
-        if (Regex.IsMatch(lower, @"(đơn hàng|order|tracking|theo dõi|đã đặt|tình trạng đơn|mã đơn|tra cứu đơn|kiểm tra đơn|don hang)"))
+        // 1. Order tracking
+        if (Regex.IsMatch(lower, @"(đơn hàng|don hang|order|tracking|theo dõi|tình trạng đơn|mã đơn|tra cứu đơn|kiểm tra đơn|ord-)"))
             return ChatIntent.OrderTracking;
 
-        // Coupon
-        if (Regex.IsMatch(lower, @"(mã giảm|coupon|voucher|khuyến mãi|giảm giá|mã code|discount|ưu đãi)"))
+        // 2. Coupon
+        if (Regex.IsMatch(lower, @"(mã giảm|ma giam|coupon|voucher|khuyến mãi|khuyen mai|giảm giá|giam gia|mã code|discount|ưu đãi|deal)"))
             return ChatIntent.CouponInquiry;
 
-        // Price range
-        if (Regex.IsMatch(lower, @"(tầm giá|khoảng giá|dưới \d|trên \d|từ \d.*đến|budget|ngân sách|giá từ|rẻ nhất|đắt nhất|bao nhiêu tiền|triệu|tầm \d)"))
-            return ChatIntent.PriceRange;
-
-        // Trending
-        if (Regex.IsMatch(lower, @"(bán chạy|trending|phổ biến|hot|best seller|nhiều người mua|nổi bật|xu hướng|được yêu thích)"))
-            return ChatIntent.Trending;
-
-        // Category browse
-        if (Regex.IsMatch(lower, @"(danh mục|loại sản phẩm|có những gì|bán gì|categories|chủng loại|phân loại)"))
-            return ChatIntent.CategoryBrowse;
-
-        // Comparison
-        if (Regex.IsMatch(lower, @"(so sánh|khác gì|hay hơn|tốt hơn|nên mua|compare|vs|versus)"))
+        // 3. Comparison
+        if (Regex.IsMatch(lower, @"(so sánh|so sanh|khác gì|khac gi|hay hơn|tốt hơn|nên mua cái nào|nên chọn|compare|vs|versus|giữa .* và)"))
             return ChatIntent.Comparison;
 
-        // Personalized recommendation
-        if (Regex.IsMatch(lower, @"(gợi ý cho tôi|đề xuất|phù hợp với tôi|recommend for me|cá nhân|personalize|dành cho tôi|suggest for me|tư vấn cho tôi|hợp với tôi)"))
+        // 4. Greeting
+        if (Regex.IsMatch(lower, @"^(chào|chao|hello|hi|alo|xin chào|xin chao|good morning|good afternoon|good evening|hey|cảm ơn|cam on|thanks|thank you|tạm biệt|tam biet|bye)\b"))
+        {
+            if (!Regex.IsMatch(lower, @"(điện thoại|laptop|tai nghe|đồng hồ|máy tính|mua|giá|sản phẩm|tư vấn|tìm|cần)"))
+                return ChatIntent.Greeting;
+        }
+
+        // 5. Store Policy
+        if (Regex.IsMatch(lower, @"(chính sách|chinh sach|đổi trả|doi tra|bảo hành|bao hanh|vận chuyển|van chuyen|giao hàng|giao hang|phí ship|phi ship|địa chỉ|dia chi|cửa hàng ở đâu|giờ mở cửa|thời gian nhận)"))
+        {
+            if (!Regex.IsMatch(lower, @"(mua|bán|giá|điện thoại|laptop|tai nghe)"))
+                return ChatIntent.StorePolicy;
+        }
+
+        // 6. Category browse (người dùng hỏi: shop có những danh mục gì, bán gì)
+        if (Regex.IsMatch(lower, @"^(danh mục|danh muc|loại sản phẩm|có những gì|bán những gì|categories|chủng loại|phân loại)\b"))
+            return ChatIntent.CategoryBrowse;
+
+        // 7. SPECIFIC PRODUCT / CATEGORY QUERY - Ưu tiên hàng đầu cho việc tìm sản phẩm!
+        // Nếu câu hỏi có tên danh mục hoặc tên sản phẩm (laptop, điện thoại, macbook, tai nghe, màn hình...),
+        // luôn gán là SearchProduct để SmartSearchAsync tìm đúng danh mục sản phẩm đó!
+        if (Regex.IsMatch(lower, @"(laptop|macbook|notebook|thinkpad|vivobook|zenbook|legion|tuf|omen|spectre|inspiron|phone|smartphone|điện thoại|dien thoai|tai nghe|headphone|earbuds|airpods|đồng hồ|dong ho|smartwatch|ipad|máy tính bảng|may tinh bang|máy tính|may tinh|màn hình|man hinh|tivi|tv|loa|airtag|samsung|apple|iphone|xiaomi|oppo|dell|asus|lenovo|hp|msi|giày|quần|áo|túi|balo)"))
+            return ChatIntent.SearchProduct;
+
+        // 8. Price range
+        if (Regex.IsMatch(lower, @"(tầm giá|khoảng giá|ngân sách|tài chính|dưới \d|trên \d|từ \d.*đến|\d+\s*(triệu|trieu|củ|cu|tr|m|k|nghìn|ngàn)|budget|rẻ nhất|đắt nhất|bao nhiêu tiền)"))
+            return ChatIntent.PriceRange;
+
+        // 9. Pure Trending (chỉ khi hỏi chung chung không có tên sản phẩm cụ thể, dùng \btop\b tránh dính chữ laptop)
+        if (Regex.IsMatch(lower, @"(bán chạy|ban chay|trending|phổ biến|pho bien|\bhot\b|best seller|nhiều người mua|nổi bật|xu hướng|yêu thích|đáng mua nhất|\btop\b)"))
+            return ChatIntent.Trending;
+
+        // 10. Generic recommendation
+        if (Regex.IsMatch(lower, @"(gợi ý cho tôi|đề xuất|phù hợp với tôi|recommend|cá nhân|dành cho tôi|tư vấn cho tôi|hợp với tôi|chọn giúp tôi|tư vấn)"))
             return ChatIntent.Recommendation;
 
-        // Product search (default for most queries)
-        if (Regex.IsMatch(lower, @"(tìm|mua|cần|muốn|gợi ý|recommend|suggest|giới thiệu|cho tôi|search|sản phẩm|phone|laptop|tai nghe|điện thoại|máy tính|giày|quần|áo)"))
+        // 11. General Search
+        if (Regex.IsMatch(lower, @"(tìm|mua|cần|muốn|gợi ý|suggest|giới thiệu|cho tôi|search|sản phẩm)"))
             return ChatIntent.SearchProduct;
 
         return ChatIntent.General;
@@ -748,7 +776,7 @@ public class ChatBotController : ControllerBase
 
         foreach (var name in productNames)
         {
-            var results = await _productService.SearchProductsAsync(name, 3);
+            var results = await _productService.SmartSearchAsync(name, null, null, 3);
             allProducts.AddRange(results);
         }
 
@@ -756,7 +784,7 @@ public class ChatBotController : ControllerBase
         return allProducts
             .GroupBy(p => p.Id)
             .Select(g => g.First())
-            .Take(8)
+            .Take(6)
             .ToList();
     }
 
@@ -786,7 +814,6 @@ public class ChatBotController : ControllerBase
 
         foreach (var part in parts)
         {
-            // Clean each part by removing comparison stop words
             var words = part.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Where(w => !comparisonWords.Contains(w) && w.Length >= 2)
                 .ToList();
@@ -799,7 +826,6 @@ public class ChatBotController : ControllerBase
             }
         }
 
-        // Fallback: if nothing extracted, try the whole message cleaned
         if (!names.Any())
         {
             var fallback = RemoveStopWords(lower);
@@ -815,7 +841,6 @@ public class ChatBotController : ControllerBase
     {
         var products = await _productService.SearchProductsAsync(message, 8);
 
-        // If no results, try to extract brand/category-specific keywords
         if (!products.Any())
         {
             var cleaned = RemoveStopWords(message);
@@ -825,7 +850,6 @@ public class ChatBotController : ControllerBase
             }
         }
 
-        // Don't fall back to trending — only return actual search results
         return products;
     }
 
@@ -856,52 +880,51 @@ public class ChatBotController : ControllerBase
         var lower = message.ToLower();
         decimal? min = null, max = null;
 
-        // "dưới X triệu" / "under X triệu"
-        var underMatch = Regex.Match(lower, @"dưới\s+(\d+(?:[.,]\d+)?)\s*(triệu|tr|m)");
+        // "dưới X triệu/củ/tr/m" / "< X" / "tối đa X"
+        var underMatch = Regex.Match(lower, @"(?:dưới|duoi|nho hon|<|khong qua|toi da)\s+(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
         if (underMatch.Success)
         {
             max = decimal.Parse(underMatch.Groups[1].Value.Replace(",", "."),
-                System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
+                CultureInfo.InvariantCulture) * 1_000_000;
         }
 
-        // "trên X triệu"
-        var overMatch = Regex.Match(lower, @"trên\s+(\d+(?:[.,]\d+)?)\s*(triệu|tr|m)");
+        // "trên X triệu/củ/tr/m" / "> X" / "tối thiểu X"
+        var overMatch = Regex.Match(lower, @"(?:trên|tren|lon hon|>|toi thieu)\s+(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
         if (overMatch.Success)
         {
             min = decimal.Parse(overMatch.Groups[1].Value.Replace(",", "."),
-                System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
+                CultureInfo.InvariantCulture) * 1_000_000;
         }
 
-        // "từ X đến Y triệu" / "tầm X đến Y triệu"
-        var rangeMatch = Regex.Match(lower, @"(?:từ|tầm)\s+(\d+(?:[.,]\d+)?)\s*(?:đến|tới|-)\s*(\d+(?:[.,]\d+)?)\s*(triệu|tr|m)");
+        // "từ X đến Y triệu/củ/tr/m"
+        var rangeMatch = Regex.Match(lower, @"(?:từ|tu|tầm|tam|khoảng|khoang)\s+(\d+(?:[.,]\d+)?)\s*(?:đến|den|tới|toi|-)\s*(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
         if (rangeMatch.Success)
         {
-            min = decimal.Parse(rangeMatch.Groups[1].Value.Replace(",", "."),
-                System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
-            max = decimal.Parse(rangeMatch.Groups[2].Value.Replace(",", "."),
-                System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
+            min = decimal.Parse(rangeMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
+            max = decimal.Parse(rangeMatch.Groups[2].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
         }
 
-        // "tầm X triệu" (without range → ±30%)
-        var aroundMatch = Regex.Match(lower, @"tầm\s+(\d+(?:[.,]\d+)?)\s*(triệu|tr|m)");
-        if (aroundMatch.Success && !rangeMatch.Success)
-        {
-            var val = decimal.Parse(aroundMatch.Groups[1].Value.Replace(",", "."),
-                System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
-            min = val * 0.7m;
-            max = val * 1.3m;
-        }
-
-        // Also try "X nghìn" / "X k"
+        // "tầm / khoảng / tài chính / có / budget X triệu/củ/tr/m" (without range → ±25%)
         if (min == null && max == null)
         {
-            var nghìnMatch = Regex.Match(lower, @"(\d+(?:[.,]\d+)?)\s*(nghìn|nghin|k)\b");
-            if (nghìnMatch.Success)
+            var aroundMatch = Regex.Match(lower, @"(?:tầm|tam|khoảng|khoang|tài chính|tai chinh|ngân sách|ngan sach|có|co|budget|giá|gia)?\s*(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
+            if (aroundMatch.Success)
             {
-                var val = decimal.Parse(nghìnMatch.Groups[1].Value.Replace(",", "."),
-                    System.Globalization.CultureInfo.InvariantCulture) * 1_000;
-                min = val * 0.7m;
-                max = val * 1.3m;
+                var val = decimal.Parse(aroundMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
+                min = Math.Max(0, val * 0.75m);
+                max = val * 1.25m;
+            }
+        }
+
+        // "X nghìn / k / ngàn / lít"
+        if (min == null && max == null)
+        {
+            var nghinMatch = Regex.Match(lower, @"(\d+(?:[.,]\d+)?)\s*(nghìn|nghin|ngàn|ngan|k)\b");
+            if (nghinMatch.Success)
+            {
+                var val = decimal.Parse(nghinMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000;
+                min = Math.Max(0, val * 0.75m);
+                max = val * 1.25m;
             }
         }
 
@@ -1008,73 +1031,71 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
         if (products.Any())
         {
             var productLines = products.Select((p, i) =>
-                $"{i + 1}. **{p.Name}** — Giá: {p.Price:N0}đ | Brand: {p.BrandName} | " +
-                $"Danh mục: {p.CategoryName} | ⭐ {p.AverageScore:F1}/5 ({p.RatingCount} lượt) | " +
-                $"Đã bán: {p.SoldOut} | {(p.IsInStock ? "✅ Còn hàng" : "❌ Hết hàng")} | " +
-                $"Mô tả: {p.ShortDescription ?? "N/A"}"
-            );
-            productContext = $"\n\n📦 DỮ LIỆU SẢN PHẨM TỪ DATABASE ({products.Count} sản phẩm):\n{string.Join("\n", productLines)}";
+            {
+                var badgeStr = !string.IsNullOrEmpty(p.HighlightBadge) ? $" [{p.HighlightBadge}]" : "";
+                var stockStr = p.IsInStock ? "✅ Còn hàng" : "❌ Tạm hết hàng";
+                var descStr = !string.IsNullOrEmpty(p.ShortDescription) ? $"\n   - Mô tả tóm tắt: {p.ShortDescription}" : "";
+                return $"{i + 1}. [ID: {p.Id}] **{p.Name}**{badgeStr}\n" +
+                       $"   - Giá bán: {p.Price:N0}đ | Hãng: {p.BrandName} | Danh mục: {p.CategoryName} | Shop: {p.ShopName ?? "ShopTTS Official"}\n" +
+                       $"   - Đánh giá: ⭐ {p.AverageScore:F1}/5 ({p.RatingCount} lượt đánh giá) | Đã bán: {p.SoldOut:N0} sản phẩm | {stockStr}{descStr}";
+            });
+            productContext = $"\n\n📦 DỮ LIỆU SẢN PHẨM THỰC TẾ TỪ HỆ THỐNG SHOPTTS ({products.Count} sản phẩm có sẵn):\n{string.Join("\n\n", productLines)}";
         }
 
         var categoryInfo = categories.Any()
-            ? $"\n\n🏷️ DANH MỤC CÓ SẴN ({categories.Count}): {string.Join(", ", categories)}"
+            ? $"\n\n🏷️ DANH MỤC SẢN PHẨM ĐANG KINH DOANH ({categories.Count} danh mục): {string.Join(", ", categories)}"
             : "";
 
         var extra = !string.IsNullOrEmpty(extraContext) ? $"\n\n📋 THÔNG TIN BỔ SUNG:\n{extraContext}" : "";
 
-        var systemPrompt = $@"Bạn là **ShopTTS AI** — trợ lý mua sắm thông minh cho nền tảng thương mại điện tử ShopTTS (Việt Nam).
+        var systemPrompt = $@"Bạn là **ShopTTS AI** — Chuyên viên tư vấn mua sắm cao cấp & tận tâm của sàn thương mại điện tử ShopTTS (Việt Nam).
 
-🎯 NHIỆM VỤ CHÍNH:
-- Tư vấn & giới thiệu sản phẩm từ dữ liệu thực (bên dưới)
-- So sánh sản phẩm chi tiết khi được yêu cầu
-- Hỗ trợ tra cứu đơn hàng, mã giảm giá
-- Tư vấn lựa chọn sản phẩm phù hợp nhu cầu & ngân sách
+🎯 PHONG CÁCH TƯ VẤN:
+- Giọng điệu: Thân thiện, chuyên nghiệp, khách quan, thấu hiểu khách hàng, dùng emoji tinh tế và vừa phải.
+- Luôn đặt lợi ích của người mua lên hàng đầu: tư vấn đúng nhu cầu thực tế, không tâng bốc quá đà.
+- Phân tích có chiều sâu kỹ thuật nhưng giải thích bằng ngôn ngữ dễ hiểu, thực tế.
 
-📝 QUY TẮC BẮT BUỘC:
-1. CHỈ giới thiệu sản phẩm có trong DỮ LIỆU bên dưới. TUYỆT ĐỐI KHÔNG bịa đặt.
-2. Nếu KHÔNG có dữ liệu sản phẩm bên dưới → KHÔNG đề cập đến bất kỳ sản phẩm cụ thể nào. Chỉ trả lời câu hỏi và hướng dẫn khách.
-3. Sử dụng Markdown: **bold** tên SP, bullet points, tiêu đề nhỏ khi cần.
-4. Giá VNĐ dùng dấu chấm: 15.990.000đ
-5. Trả lời tiếng Việt, thân thiện, chuyên nghiệp, dùng emoji phù hợp.
-6. Khi có sản phẩm → giới thiệu rõ: tên, giá, brand, đánh giá, ưu điểm.
-7. Khi so sánh → tạo bảng hoặc list so sánh chi tiết.
-8. Không trả lời ngoài chủ đề mua sắm → nhẹ nhàng chuyển hướng.
-9. LUÔN TRẢ LỜI ĐẦY ĐỦ, CHI TIẾT. Không bao giờ cắt ngắn câu trả lời giữa chừng.
-10. Khi liệt kê các bước → VIẾT ĐẦY ĐỦ NỘI DUNG từng bước, không chỉ liệt kê tiêu đề.
+📋 NGUYÊN TẮC BẮT BUỘC:
+1. CHỈ tư vấn và giới thiệu các sản phẩm CÓ THẬT trong danh sách [DỮ LIỆU SẢN PHẨM THỰC TẾ TỪ HỆ THỐNG SHOPTTS] bên dưới. TUYỆT ĐỐI KHÔNG bịa đặt sản phẩm, giá bán hay thông số ngoài danh sách.
+2. ĐỒNG BỘ TUYỆT ĐỐI VỚI GIAO DIỆN: Các sản phẩm trong danh sách bên dưới CHÍNH LÀ các thẻ sản phẩm đang hiển thị trực tiếp trước mắt khách hàng trong khung chat. Bạn PHẢI tập trung phân tích ưu/nhược điểm và gợi ý từ chính các sản phẩm này để khách có thể bấm 'Xem chi tiết' hoặc 'Thêm vào giỏ' ngay lập tức.
+3. Định dạng giá tiền: Luôn viết rõ ràng bằng VNĐ có dấu chấm phân cách (ví dụ: **15.990.000đ**).
+4. KHÔNG đề cập đến sàn thương mại điện tử đối thủ (Shopee, Lazada, Tiki, TikTok Shop). Luôn khẳng định sản phẩm có sẵn tại ShopTTS.
+5. Khi người dùng hỏi so sánh (Comparison): Phải so sánh chi tiết các khía cạnh (Giá, Hiệu năng, Màn hình/Thiết kế, Camera, Pin) và kết luận rõ ai nên chọn máy nào.
 
-🤖 CÁ NHÂN HÓA:
-- Nếu có phần HÀNH VI NGƯỜI DÙNG trong THÔNG TIN BỔ SUNG, hãy sử dụng thông tin đó để tư vấn phù hợp hơn.
-- Ưu tiên giới thiệu sản phẩm thuộc danh mục/thương hiệu mà khách đã quan tâm.
-- Khi gợi ý cá nhân hóa, giải thích lý do một cách tự nhiên: 'Vì bạn thường xem sản phẩm X...', 'Dựa trên sở thích của bạn...'
-- KHÔNG bao giờ nói rằng bạn đang 'theo dõi' hay 'giám sát' hành vi khách hàng.
+💡 QUY CHUẨN CẤU TRÚC PHẢN HỒI KHI TƯ VẤN:
+1. **Mở đầu thấu cảm**: Tóm tắt lại đúng tiêu chí/ngân sách của khách để tạo sự an tâm.
+2. **Đánh giá từng sản phẩm đề xuất**:
+   - **Tên sản phẩm** kèm giá in đậm và đánh giá ⭐
+   - 🌟 **Ưu điểm nổi bật**: Phân tích điểm mạnh thực tế (chip, màn hình, camera, thời lượng pin, thiết kế).
+   - ⚠️ **Lưu ý nhỏ**: Điểm hạn chế hoặc điều cần lưu ý để đảm bảo tính khách quan.
+   - 🎯 **Phù hợp nhất cho**: Đối tượng cụ thể (game thủ, học sinh sinh viên, dân văn phòng, chụp ảnh du lịch...).
+3. **Lời khuyên chốt hạ (Best Pick)**:
+   - Đưa ra nhận định rõ ràng: đâu là 'Lựa chọn toàn diện nhất', đâu là 'Lựa chọn tiết kiệm chi phí nhất'.
+4. **Gợi ý câu hỏi thông minh**:
+   Cuối phản hồi, BẮT BUỘC thêm 2-3 câu hỏi gợi ý để khách bấm hỏi tiếp:
+   [suggest]Gợi ý 1[/suggest]
+   [suggest]Gợi ý 2[/suggest]
+   [suggest]Gợi ý 3[/suggest]
 
-🔍 TRA CỨU ĐƠN HÀNG — QUY TẮC ĐẶC BIỆT:
-- Nếu phần THÔNG TIN BỔ SUNG có chứa 'ĐÃ TÌM THẤY ĐƠN HÀNG' → BẮT BUỘC hiển thị TOÀN BỘ thông tin đơn hàng cho khách.
-- TUYỆT ĐỐI KHÔNG nói 'không thể truy cập', 'vì lý do bảo mật', hay 'liên hệ bộ phận hỗ trợ' khi đã có dữ liệu đơn hàng.
-- Trình bày thông tin đơn hàng sạch đẹp bằng Markdown với emoji.
-- Nếu KHÔNG tìm thấy đơn hàng → hướng dẫn khách kiểm tra lại mã đơn.
+📦 TRA CỨU ĐƠN HÀNG:
+- Khi có dữ liệu đơn hàng trong [THÔNG TIN BỔ SUNG]: BẮT BUỘC hiển thị TOÀN BỘ thông tin (Mã đơn, Người nhận, SĐT, Địa chỉ, Sản phẩm, Tạm tính, Ship, Giảm giá, Tổng tiền, Trạng thái đơn, Thanh toán) bằng Markdown sạch đẹp. TUYỆT ĐỐI KHÔNG nói 'không thể tra cứu' hay 'vì lý do bảo mật'.
 
-💡 CUỐI MỖI CÂU TRẢ LỜI, thêm 2-3 gợi ý câu hỏi tiếp theo dạng:
-[suggest]Gợi ý 1[/suggest]
-[suggest]Gợi ý 2[/suggest]
-[suggest]Gợi ý 3[/suggest]
-
-🧾 OPTIONAL STRUCTURED OUTPUT (nếu có thể):
-- Bạn có thể đính kèm một khối JSON cuối phản hồi, bao bọc trong thẻ <response_json> ... </response_json>.
-- Ví dụ schema (không bắt buộc, nhưng nếu có hãy tuân theo):
+🧾 OPTIONAL STRUCTURED OUTPUT:
+- Cuối phản hồi, bạn có thể đính kèm khối JSON trong thẻ <response_json> ... </response_json> để giao diện tạo các nút hành động tương tác nhanh:
 ```
 <response_json>
 {{
-    ""reply"": ""(nội dung trả lời, Markdown)"",
+    ""reply"": ""(nội dung trả lời Markdown)"",
     ""suggestions"": [""Gợi ý 1"", ""Gợi ý 2""],
-    ""actions"": [{{ ""type"": ""view"", ""productId"": 123 }}, {{ ""type"": ""add_to_cart"", ""productId"": 456 }}],
-    ""citations"": [{{ ""source"": ""FAQ"", ""title"": ""Chính sách đổi trả"", ""url"": ""https://..."" }}]
+    ""actions"": [
+        {{ ""type"": ""view"", ""productId"": 123, ""label"": ""Xem chi tiết"" }},
+        {{ ""type"": ""add_to_cart"", ""productId"": 123, ""label"": ""Thêm vào giỏ"" }}
+    ]
 }}
 </response_json>
 ```
-- Nếu JSON được cung cấp, server sẽ ưu tiên trường `reply` làm nội dung clean và sẽ đọc `suggestions`/`actions` để hiển thị nút hoặc thẻ sản phẩm.
 
-📞 HOTLINE: 1900-xxxx | 📧 support@shoptts.vn | ⏰ 8:00-22:00
+Hotline hỗ trợ: 1900-xxxx | Email: support@shoptts.vn | Giờ phục vụ: 8:00 - 22:00
 {productContext}{categoryInfo}{extra}";
 
         var messages = new List<GroqMessage>
@@ -1252,7 +1273,9 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
         p.AverageScore,
         p.RatingCount,
         p.SoldOut,
-        p.IsInStock
+        p.IsInStock,
+        p.ShortDescription,
+        p.HighlightBadge
     };
 }
 
@@ -1263,6 +1286,8 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
 public enum ChatIntent
 {
     General,
+    Greeting,
+    StorePolicy,
     SearchProduct,
     PriceRange,
     Trending,
