@@ -75,6 +75,19 @@ public class BehaviorController : ControllerBase
     }
 
     /// <summary>
+    /// Get dynamic, personalized home feed for all sections (recommended, flash sale, trending, new arrivals, recently viewed)
+    /// </summary>
+    [HttpGet("home-feed")]
+    public async Task<IActionResult> GetHomeFeed(
+        [FromQuery] string? sessionId,
+        [FromQuery] int limit = 8)
+    {
+        var userId = GetUserId();
+        var feed = await _behaviorService.GetHomeFeedAsync(userId, sessionId, limit);
+        return Ok(new { success = true, data = feed });
+    }
+
+    /// <summary>
     /// Get personalized recommendations based on user behavior
     /// </summary>
     [HttpGet("recommendations")]

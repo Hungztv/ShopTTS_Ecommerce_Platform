@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useCompare } from "@/contexts/CompareContext";
+import { trackSearch } from "@/lib/services/behavior-service";
 import NotificationBell from "@/components/layout/NotificationBell";
 import { categoriesService } from "@/lib/services/admin/categories-service";
 import type { Category } from "@/lib/services/admin/dashboard-service";
@@ -53,6 +54,7 @@ export default function Header() {
   const handleSearch = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      trackSearch(searchQuery.trim(), "header");
       router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery("");
       setIsSearchFocused(false);

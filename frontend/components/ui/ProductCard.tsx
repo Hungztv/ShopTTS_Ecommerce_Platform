@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Star, Zap, Store } from "lucide-react";
+import { Star, Zap, Store, Sparkles } from "lucide-react";
 import AddToCartButton from "@/components/ui/AddToCartButton";
 import WishlistButton from "@/components/ui/WishlistButton";
 import CompareButton from "@/components/ui/CompareButton";
@@ -18,6 +18,7 @@ interface ProductCardProps {
     rating: number;
     reviews: number;
     badge?: "sale" | "new" | "hot";
+    customBadge?: string;
     category: string;
     shopName?: string;
     shopSlug?: string;
@@ -33,6 +34,7 @@ export default function ProductCard({
     rating,
     reviews,
     badge,
+    customBadge,
     category,
     shopName,
     shopSlug,
@@ -80,18 +82,30 @@ export default function ProductCard({
             }}
         >
             {/* Enhanced Badge */}
-            {badge && (
+            {(customBadge || badge) && (
                 <div className="absolute top-3 left-3 z-10">
                     <span
-                        className={`badge flex items-center gap-1 ${badge === "sale"
-                            ? "badge-sale"
-                            : badge === "new"
-                                ? "badge-new"
-                                : "badge-hot"
+                        className={`badge flex items-center gap-1 ${
+                            customBadge
+                                ? "bg-violet-600 text-white shadow-sm shadow-violet-200 dark:shadow-none"
+                                : badge === "sale"
+                                    ? "badge-sale"
+                                    : badge === "new"
+                                        ? "badge-new"
+                                        : "badge-hot"
                             }`}
                     >
-                        {badge === "hot" && <Zap className="w-3 h-3" />}
-                        {badge === "sale" ? `-${discount}%` : badge === "new" ? "Mới" : "Hot"}
+                        {customBadge ? (
+                            <>
+                                <Sparkles className="w-3 h-3" />
+                                {customBadge}
+                            </>
+                        ) : (
+                            <>
+                                {badge === "hot" && <Zap className="w-3 h-3" />}
+                                {badge === "sale" ? `-${discount}%` : badge === "new" ? "Mới" : "Hot"}
+                            </>
+                        )}
                     </span>
                 </div>
             )}

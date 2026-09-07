@@ -46,6 +46,149 @@ export interface TopProduct {
     stock?: number;
 }
 
+export interface Product {
+    id: number;
+    name: string;
+    slug: string;
+    description?: string;
+    price: number;
+    capitalPrice: number;
+    quantity: number;
+    soldOut: number;
+    image: string;
+    averageScore?: number;
+    ratingCount?: number;
+    brandId: number;
+    categoryId: number;
+    shopId?: number;
+    shopName?: string;
+    shopSlug?: string;
+    shopLogoUrl?: string;
+    shopOwnerUserId?: string;
+    categoryName?: string;
+    brandName?: string;
+    brand?: Brand;
+    category?: Category;
+    createdAt: string;
+    updatedAt?: string;
+    isDeleted?: boolean;
+}
+
+export interface Category {
+    id: number;
+    name: string;
+    description?: string;
+    slug?: string;
+    status?: string;
+    createdAt: string;
+    updatedAt?: string;
+    isDeleted?: boolean;
+}
+
+export interface Brand {
+    id: number;
+    name: string;
+    description?: string;
+    slug?: string;
+    status?: string;
+    logo?: string;
+    createdAt: string;
+    updatedAt?: string;
+    isDeleted?: boolean;
+}
+
+export interface Order {
+    id: number;
+    orderCode: string;
+    name: string;
+    phoneNumber: string;
+    address: string;
+    email?: string;
+    note?: string;
+    shippingCost: number;
+    subtotal: number;
+    discountAmount: number;
+    total: number;
+    couponCode?: string;
+    couponId?: number;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    status: number;
+    userId?: string;
+    orderDetails?: OrderDetail[];
+    createdAt: string;
+    updatedAt?: string;
+}
+
+export interface OrderDetail {
+    id: number;
+    productId: number;
+    productName: string;
+    productImage?: string;
+    quantity: number;
+    price: number;
+    shopName?: string;
+    shopId?: number;
+}
+
+export interface Coupon {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    dateStart: string;
+    dateExpired: string;
+    discountValue: number;
+    isPercent?: boolean;
+    quantity: number;
+    usedCount: number;
+    minimumOrderValue?: number;
+    status?: number;
+    createdAt?: string;
+}
+
+export interface Slider {
+    id: number;
+    name: string;
+    title?: string;
+    image: string;
+    description?: string;
+    link?: string;
+    displayOrder: number;
+    status: number;
+    createdAt: string;
+}
+
+export interface ContactMessage {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    message: string;
+    isRead: boolean;
+    repliedAt?: string;
+    replyMessage?: string;
+    createdAt: string;
+}
+
+export interface AppUser {
+    id: string;
+    userName?: string;
+    email?: string;
+    fullName?: string;
+    phoneNumber?: string;
+    address?: string;
+    avatar?: string;
+    dateOfBirth?: string;
+    occupation?: string;
+    createdAt: string;
+    lastLoginAt?: string;
+    roles?: string[];
+    roleId?: string;
+    isDeleted?: boolean;
+}
+
 export const dashboardService = {
     async getStats(period: '7days' | '30days' | 'month' | 'year' = '7days'): Promise<DashboardStats> {
         try {

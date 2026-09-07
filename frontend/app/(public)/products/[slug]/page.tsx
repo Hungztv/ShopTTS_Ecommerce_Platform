@@ -6,10 +6,12 @@ import Link from 'next/link';
 import {
     Star, Minus, Plus, ChevronLeft, ChevronRight,
     Truck, Shield, RotateCcw, Package, MessageCircle, Store, ExternalLink,
-    Heart, Share2, Eye, ShoppingBag, Check, AlertCircle
+    Heart, Share2, Eye, ShoppingBag, Check, AlertCircle, Sparkles
 } from 'lucide-react';
 import { productsPublicService, Product } from '@/lib/services/public-api';
-import { formatPrice } from '@/lib/utils/product-mapper';
+import { formatPrice, mapRecommendedProduct } from '@/lib/utils/product-mapper';
+import ProductCard from '@/components/ui/ProductCard';
+import { trackProductView, trackDwellTime, getAlsoViewed, getPersonalizedRecommendations, RecommendedProduct } from '@/lib/services/behavior-service';
 import Image from 'next/image';
 import AddToCartButton from '@/components/ui/AddToCartButton';
 import WishlistButton from '@/components/ui/WishlistButton';
@@ -24,21 +26,50 @@ export default function ProductDetailPage() {
     const { user } = useAuth();
 
     const [product, setProduct] = useState<Product | null>(null);
+    const [relatedProducts, setRelatedProducts] = useState<RecommendedProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
 
     useEffect(() => {
+        let startTime = Date.now();
+        let loadedProductId: number | null = null;
+
         const loadProduct = async () => {
             setLoading(true);
             const data = await productsPublicService.getBySlug(slug);
             if (data) {
                 setProduct(data);
+                loadedProductId = data.id;
+
+                // 🎯 Track product view immediately
+                trackProductView(data.id);
+
+                // Fetch also-viewed or personalized recommendations for this product
+                try {
+                    let related = await getAlsoViewed(data.id, 5);
+                    if (!related || related.length === 0) {
+                        related = await getPersonalizedRecommendations(5);
+                    }
+                    // Filter out current product
+                    setRelatedProducts(related.filter(r => r.id !== data.id));
+                } catch {
+                    // Ignore recommendation loading error
+                }
             }
             setLoading(false);
         };
         loadProduct();
+
+        return () => {
+            if (loadedProductId) {
+                const elapsedSeconds = (Date.now() - startTime) / 1000;
+                if (elapsedSeconds >= 3) {
+                    trackDwellTime(loadedProductId, elapsedSeconds);
+                }
+            }
+        };
     }, [slug]);
 
     // Only use real product image(s)
@@ -444,6 +475,31 @@ export default function ProductDetailPage() {
                         )}
                     </div>
                 </div>
+
+                {/* ══════════════════ RELATED & RECOMMENDED PRODUCTS ══════════════════ */}
+                {relatedProducts.length > 0 && (
+                    <div className="mt-14">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-200 dark:shadow-none">
+                                <Sparkles className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                                    Sản phẩm tương tự & Gợi ý cho bạn
+                                </h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Dựa trên hành vi người dùng và sở thích của bạn
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            {relatedProducts.map((rel) => (
+                                <ProductCard key={rel.id} {...mapRecommendedProduct(rel)} />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

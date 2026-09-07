@@ -31,6 +31,20 @@ public interface IUserBehaviorService
 
     /// <summary>Build a recommendation context string for the chatbot system prompt</summary>
     Task<string> GetRecommendationContextAsync(string? userId, string? sessionId);
+
+    /// <summary>Get dynamic home feed with personalized weights for all sections</summary>
+    Task<PersonalizedHomeFeedResult> GetHomeFeedAsync(string? userId, string? sessionId, int limit = 8);
+}
+
+public class PersonalizedHomeFeedResult
+{
+    public List<ChatProductInfo> RecommendedForYou { get; set; } = new();
+    public List<ChatProductInfo> FlashSale { get; set; } = new();
+    public List<ChatProductInfo> NewArrivals { get; set; } = new();
+    public List<ChatProductInfo> Trending { get; set; } = new();
+    public List<ChatProductInfo> RecentlyViewed { get; set; } = new();
+    public List<string> PreferredCategories { get; set; } = new();
+    public bool HasPersonalizedData { get; set; }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -173,6 +187,11 @@ public class UserBehaviorService : IUserBehaviorService
     {
         try
         {
+            var allProducts = await _unitOfWork.ProductRepository.GetAllWithDetailsAsync();
+            var activeProducts = allProducts.Where(p => !p.IsDeleted && p.Quantity > 0).ToList();
+            if (!activeProducts.Any())
+                return new List<ChatProductInfo>();
+
             // 1. Get user's behavior history (last 30 days)
             var cutoff = DateTime.UtcNow.AddDays(-30);
             var behaviors = await _unitOfWork.UserBehaviors
@@ -183,7 +202,19 @@ public class UserBehaviorService : IUserBehaviorService
 
             var behaviorList = behaviors.ToList();
             if (!behaviorList.Any())
-                return new List<ChatProductInfo>();
+            {
+                // Cold-start fallback: top-rated & best-selling products
+                return activeProducts
+                    .OrderByDescending(p => (double)p.AverageScore * 0.8 + Math.Log(p.SoldOut + 1) * 0.5)
+                    .Take(maxResults)
+                    .Select(p =>
+                    {
+                        var info = MapToProductInfo(p);
+                        info.HighlightBadge = "Thịnh hành";
+                        return info;
+                    })
+                    .ToList();
+            }
 
             // 2. Score categories and brands by weighted behavior
             var categoryScores = new Dictionary<int, double>();
@@ -205,7 +236,7 @@ public class UserBehaviorService : IUserBehaviorService
 
                 // High rating boost
                 if (b.BehaviorType == BehaviorType.Rating && b.RatingScore.HasValue)
-                    weight *= b.RatingScore.Value / 3.0; // 5-star = 1.67x, 1-star = 0.33x
+                    weight *= b.RatingScore.Value / 3.0;
 
                 if (b.CategoryId.HasValue)
                 {
@@ -226,46 +257,246 @@ public class UserBehaviorService : IUserBehaviorService
             // 3. Get top categories and brands
             var topCategories = categoryScores
                 .OrderByDescending(x => x.Value)
-                .Take(3)
+                .Take(4)
                 .Select(x => x.Key)
                 .ToList();
 
             var topBrands = brandScores
                 .OrderByDescending(x => x.Value)
-                .Take(3)
+                .Take(4)
                 .Select(x => x.Key)
                 .ToList();
 
-            // 4. Find products matching preferred categories/brands, excluding already viewed
-            var allProducts = await _unitOfWork.ProductRepository.GetAllWithDetailsAsync();
-            var candidates = allProducts
-                .Where(p => !p.IsDeleted && p.Quantity > 0)
-                .Where(p => !viewedProductIds.Contains(p.Id))
+            // 4. Score products matching preferred categories/brands
+            var candidates = activeProducts
                 .Select(p =>
                 {
-                    double score = 0;
+                    double affinity = 0;
                     if (topCategories.Contains(p.CategoryId))
-                        score += categoryScores.GetValueOrDefault(p.CategoryId, 0) * 2;
+                        affinity += categoryScores.GetValueOrDefault(p.CategoryId, 0) * 2.5;
                     if (topBrands.Contains(p.BrandId))
-                        score += brandScores.GetValueOrDefault(p.BrandId, 0) * 1.5;
+                        affinity += brandScores.GetValueOrDefault(p.BrandId, 0) * 1.8;
 
                     // Quality boost
-                    score += (double)p.AverageScore * 0.5;
-                    score += Math.Log(p.SoldOut + 1) * 0.3;
+                    var quality = (double)p.AverageScore * 0.6 + Math.Log(p.SoldOut + 1) * 0.3;
+                    var penalty = viewedProductIds.Contains(p.Id) ? 0.4 : 1.0;
+                    var score = (affinity * 2.0 + quality) * penalty;
 
-                    return new { Product = p, Score = score };
+                    return new { Product = p, Score = score, Affinity = affinity };
                 })
-                .Where(x => x.Score > 0)
                 .OrderByDescending(x => x.Score)
                 .Take(maxResults)
                 .ToList();
 
-            return candidates.Select(x => MapToProductInfo(x.Product)).ToList();
+            return candidates.Select(x =>
+            {
+                var info = MapToProductInfo(x.Product);
+                info.HighlightBadge = x.Affinity > 0 ? "AI Đề xuất" : "Thịnh hành";
+                return info;
+            }).ToList();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get personalized recommendations");
             return new List<ChatProductInfo>();
+        }
+    }
+
+    // ══════════════════════════════════════════
+    //  Personalized Home Feed
+    // ══════════════════════════════════════════
+
+    public async Task<PersonalizedHomeFeedResult> GetHomeFeedAsync(
+        string? userId, string? sessionId, int limit = 8)
+    {
+        var result = new PersonalizedHomeFeedResult();
+        try
+        {
+            var allProductsList = await _unitOfWork.ProductRepository.GetAllWithDetailsAsync();
+            var activeProducts = allProductsList
+                .Where(p => !p.IsDeleted && p.Quantity > 0)
+                .ToList();
+
+            if (!activeProducts.Any())
+                return result;
+
+            // 1. Fetch user behaviors (last 30 days)
+            var cutoff = DateTime.UtcNow.AddDays(-30);
+            var behaviors = await _unitOfWork.UserBehaviors
+                .FindAsync(b => !b.IsDeleted
+                    && b.CreatedAt >= cutoff
+                    && ((userId != null && b.UserId == userId)
+                        || (sessionId != null && b.SessionId == sessionId)));
+
+            var behaviorList = behaviors.ToList();
+
+            // 2. Score categories and brands
+            var categoryScores = new Dictionary<int, double>();
+            var brandScores = new Dictionary<int, double>();
+            var viewedProductIds = new HashSet<int>();
+
+            foreach (var b in behaviorList)
+            {
+                var weight = BehaviorWeights.GetValueOrDefault(b.BehaviorType, 1.0);
+                var daysSince = (DateTime.UtcNow - b.CreatedAt).TotalDays;
+                var recencyMultiplier = Math.Max(0.1, 1.0 - (daysSince / 30.0));
+                weight *= recencyMultiplier;
+
+                if (b.BehaviorType == BehaviorType.View && b.DwellTimeSeconds.HasValue)
+                    weight *= Math.Min(2.0, 1.0 + b.DwellTimeSeconds.Value / 60.0);
+
+                if (b.BehaviorType == BehaviorType.Rating && b.RatingScore.HasValue)
+                    weight *= b.RatingScore.Value / 3.0;
+
+                if (b.CategoryId.HasValue)
+                {
+                    categoryScores.TryGetValue(b.CategoryId.Value, out var cs);
+                    categoryScores[b.CategoryId.Value] = cs + weight;
+                }
+
+                if (b.BrandId.HasValue)
+                {
+                    brandScores.TryGetValue(b.BrandId.Value, out var bs);
+                    brandScores[b.BrandId.Value] = bs + weight;
+                }
+
+                if (b.ProductId.HasValue)
+                    viewedProductIds.Add(b.ProductId.Value);
+            }
+
+            var hasUserBehavior = categoryScores.Any() || brandScores.Any() || viewedProductIds.Any();
+            result.HasPersonalizedData = hasUserBehavior;
+
+            // Preferred category names for UI
+            var topCategoryIds = categoryScores
+                .OrderByDescending(x => x.Value)
+                .Take(3)
+                .Select(x => x.Key)
+                .ToList();
+
+            if (topCategoryIds.Any())
+            {
+                var allCategories = await _unitOfWork.Categories.GetAllAsync();
+                result.PreferredCategories = topCategoryIds
+                    .Select(id => allCategories.FirstOrDefault(c => c.Id == id)?.Name)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Select(name => name!)
+                    .ToList();
+            }
+
+            // Helper to get affinity score
+            double GetAffinityScore(Product p)
+            {
+                double score = 0;
+                if (categoryScores.TryGetValue(p.CategoryId, out var cs))
+                    score += cs * 2.5;
+                if (brandScores.TryGetValue(p.BrandId, out var bs))
+                    score += bs * 1.8;
+                return score;
+            }
+
+            // ── Section 1: Recommended For You ──
+            var recommendedCandidates = activeProducts
+                .Select(p =>
+                {
+                    var affinity = GetAffinityScore(p);
+                    var qualityScore = (double)p.AverageScore * 0.8 + Math.Log(p.SoldOut + 1) * 0.4;
+                    var penalty = viewedProductIds.Contains(p.Id) ? 0.6 : 1.0;
+                    var total = (affinity * 2.0 + qualityScore) * penalty;
+                    return new { Product = p, Affinity = affinity, Score = total };
+                })
+                .OrderByDescending(x => x.Score)
+                .Take(limit)
+                .ToList();
+
+            result.RecommendedForYou = recommendedCandidates.Select(x =>
+            {
+                var info = MapToProductInfo(x.Product);
+                info.HighlightBadge = x.Affinity > 0 ? "AI Gợi ý" : "Thịnh hành";
+                return info;
+            }).ToList();
+
+            // ── Section 2: Flash Sale ──
+            // Products with discount (CapitalPrice > Price), prioritized by user affinity
+            var saleProducts = activeProducts
+                .Where(p => p.Price > 0)
+                .Select(p =>
+                {
+                    var hasMarkdown = p.CapitalPrice > p.Price;
+                    var discountPercent = hasMarkdown
+                        ? (double)((p.CapitalPrice - p.Price) / p.CapitalPrice) * 100.0
+                        : 0.0;
+                    var affinity = GetAffinityScore(p);
+                    var dealScore = (hasMarkdown ? 50.0 : 0.0) + discountPercent * 1.2 + (affinity > 0 ? affinity * 2.0 : 0.0);
+                    return new { Product = p, DealScore = dealScore, DiscountPercent = discountPercent, Affinity = affinity };
+                })
+                .OrderByDescending(x => x.DealScore)
+                .Take(limit)
+                .ToList();
+
+            result.FlashSale = saleProducts.Select(x =>
+            {
+                var info = MapToProductInfo(x.Product);
+                if (x.DiscountPercent > 0)
+                    info.HighlightBadge = $"-{Math.Round(x.DiscountPercent)}%";
+                else if (x.Affinity > 0)
+                    info.HighlightBadge = "Dành cho bạn";
+                else
+                    info.HighlightBadge = "Giá tốt";
+                return info;
+            }).ToList();
+
+            // ── Section 3: New Arrivals (Hàng mới về) ──
+            // Boosted by user affinity so fresh items in categories user loves show first
+            var newArrivals = activeProducts
+                .Select(p =>
+                {
+                    var affinity = GetAffinityScore(p);
+                    var daysOld = Math.Max(0, (DateTime.UtcNow - p.CreatedAt).TotalDays);
+                    var recencyScore = Math.Max(0, 100.0 - daysOld * 2.0);
+                    var totalScore = recencyScore + (affinity > 0 ? affinity * 3.0 : 0.0);
+                    return new { Product = p, TotalScore = totalScore, Affinity = affinity };
+                })
+                .OrderByDescending(x => x.TotalScore)
+                .Take(limit)
+                .ToList();
+
+            result.NewArrivals = newArrivals.Select(x =>
+            {
+                var info = MapToProductInfo(x.Product);
+                info.HighlightBadge = x.Affinity > 0 ? "Mới về theo gu" : "Mới";
+                return info;
+            }).ToList();
+
+            // ── Section 4: Trending Today (Xu hướng hôm nay) ──
+            var trending = activeProducts
+                .Select(p =>
+                {
+                    var affinity = GetAffinityScore(p);
+                    var popularityScore = p.SoldOut * 1.5 + (double)p.AverageScore * 2.0;
+                    var totalScore = popularityScore + (affinity > 0 ? affinity * 1.5 : 0.0);
+                    return new { Product = p, TotalScore = totalScore, Affinity = affinity };
+                })
+                .OrderByDescending(x => x.TotalScore)
+                .Take(limit)
+                .ToList();
+
+            result.Trending = trending.Select(x =>
+            {
+                var info = MapToProductInfo(x.Product);
+                info.HighlightBadge = x.Affinity > 0 ? "Xu hướng cho bạn" : "Hot";
+                return info;
+            }).ToList();
+
+            // ── Section 5: Recently Viewed ──
+            result.RecentlyViewed = await GetRecentlyViewedAsync(userId, sessionId, limit);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build personalized home feed");
+            return result;
         }
     }
 
@@ -530,6 +761,10 @@ public class UserBehaviorService : IUserBehaviorService
         Name = p.Name,
         Slug = p.Slug,
         Price = p.Price,
+        CapitalPrice = p.CapitalPrice,
+        CategoryId = p.CategoryId,
+        BrandId = p.BrandId,
+        CreatedAt = p.CreatedAt,
         Image = p.Image,
         BrandName = p.Brand?.Name ?? "N/A",
         CategoryName = p.Category?.Name ?? "N/A",

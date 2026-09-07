@@ -62,6 +62,10 @@ public class ChatProductInfo
     public int SoldOut { get; set; }
     public bool IsInStock { get; set; }
     public string? ShortDescription { get; set; }
+    public decimal? CapitalPrice { get; set; }
+    public int? CategoryId { get; set; }
+    public int? BrandId { get; set; }
+    public DateTime? CreatedAt { get; set; }
     public string? HighlightBadge { get; set; }
 }
 

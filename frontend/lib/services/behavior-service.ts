@@ -31,13 +31,28 @@ export interface RecommendedProduct {
   name: string;
   slug: string;
   price: number;
+  capitalPrice?: number;
   image: string;
   brandName: string;
   categoryName: string;
+  categoryId?: number;
+  brandId?: number;
   averageScore: number;
   ratingCount: number;
   soldOut: number;
   isInStock: boolean;
+  shortDescription?: string;
+  highlightBadge?: string;
+}
+
+export interface PersonalizedHomeFeed {
+  recommendedForYou: RecommendedProduct[];
+  flashSale: RecommendedProduct[];
+  newArrivals: RecommendedProduct[];
+  trending: RecommendedProduct[];
+  recentlyViewed: RecommendedProduct[];
+  preferredCategories: string[];
+  hasPersonalizedData: boolean;
 }
 
 // ══════════════════════════════════════════
@@ -48,10 +63,15 @@ const SESSION_KEY = 'shoptts_session_id';
 
 export function getSessionId(): string {
   if (typeof window === 'undefined') return '';
-  let sessionId = sessionStorage.getItem(SESSION_KEY);
+  let sessionId = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
   if (!sessionId) {
     sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    sessionStorage.setItem(SESSION_KEY, sessionId);
+    try {
+      localStorage.setItem(SESSION_KEY, sessionId);
+      sessionStorage.setItem(SESSION_KEY, sessionId);
+    } catch {
+      // Ignore storage errors in private browsing
+    }
   }
   return sessionId;
 }
@@ -76,13 +96,13 @@ function getAuthHeaders(): Record<string, string> {
 // Queue for batching events
 let eventQueue: TrackEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
-const FLUSH_INTERVAL = 5000; // 5 seconds
-const MAX_BATCH_SIZE = 20;
+const FLUSH_INTERVAL = 1500; // 1.5 seconds
+const MAX_BATCH_SIZE = 15;
 
 /**
- * Track a single behavior event. Events are batched and sent every 5s.
+ * Track a single behavior event. Critical events flush immediately.
  */
-export function trackBehavior(event: Omit<TrackEvent, 'sessionId'>): void {
+export function trackBehavior(event: Omit<TrackEvent, 'sessionId'>, immediate = false): void {
   const fullEvent: TrackEvent = {
     ...event,
     sessionId: getSessionId(),
@@ -90,8 +110,8 @@ export function trackBehavior(event: Omit<TrackEvent, 'sessionId'>): void {
 
   eventQueue.push(fullEvent);
 
-  // Flush immediately if batch is full
-  if (eventQueue.length >= MAX_BATCH_SIZE) {
+  // Flush immediately if requested or batch is full
+  if (immediate || eventQueue.length >= MAX_BATCH_SIZE) {
     flushEvents();
     return;
   }
@@ -162,22 +182,23 @@ if (typeof window !== 'undefined') {
 //  Convenience tracking helpers
 // ══════════════════════════════════════════
 
-/** Track a product page view */
+/** Track a product page view (flushed immediately so recommendations react fast) */
 export function trackProductView(productId: number, sourcePage?: string): void {
   trackBehavior({
     behaviorType: BehaviorType.View,
     productId,
-    sourcePage: sourcePage || window?.location?.pathname,
-  });
+    sourcePage: sourcePage || (typeof window !== 'undefined' ? window.location.pathname : undefined),
+  }, true);
 }
 
-/** Track a search query */
+/** Track a search query (flushed immediately) */
 export function trackSearch(query: string, sourcePage?: string): void {
+  if (!query || !query.trim()) return;
   trackBehavior({
     behaviorType: BehaviorType.Search,
-    searchQuery: query,
+    searchQuery: query.trim(),
     sourcePage: sourcePage || 'search',
-  });
+  }, true);
 }
 
 /** Track an add-to-cart action */
@@ -296,5 +317,21 @@ export async function getAlsoViewed(
     return res.data?.data || [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Get dynamic, personalized home feed for all sections
+ */
+export async function getHomeFeed(limit = 8): Promise<PersonalizedHomeFeed | null> {
+  try {
+    const res = await axios.get(`${API_URL}/behavior/home-feed`, {
+      params: { sessionId: getSessionId(), limit },
+      headers: getAuthHeaders(),
+    });
+    return res.data?.data || null;
+  } catch (error) {
+    console.warn('[Behavior] Failed to fetch home feed:', error);
+    return null;
   }
 }

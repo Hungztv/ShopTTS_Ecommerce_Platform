@@ -14,6 +14,7 @@ import {
     PaginatedResponse
 } from '@/lib/services/public-api';
 import { mapProduct } from '@/lib/utils/product-mapper';
+import { trackSearch } from '@/lib/services/behavior-service';
 
 function ProductsContent() {
     const searchParams = useSearchParams();
@@ -71,6 +72,10 @@ function ProductsContent() {
             });
             setProducts(data);
             setLoading(false);
+
+            if (search && search.trim()) {
+                trackSearch(search.trim(), 'products_catalog');
+            }
         };
         loadProducts();
     }, [page, categoryId, brandId, search, minPrice, maxPrice, sortBy, sortOrder]);

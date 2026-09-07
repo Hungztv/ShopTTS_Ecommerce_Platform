@@ -15,6 +15,7 @@ export interface ProductCardData {
     shopName?: string;
     shopSlug?: string;
     badge?: 'sale' | 'new' | 'hot';
+    customBadge?: string;
 }
 
 /**
@@ -36,6 +37,40 @@ export function mapProduct(product: Product): ProductCardData {
         shopName: product.shopName,
         shopSlug: product.shopSlug || (product.shopId ? product.shopId.toString() : undefined),
         badge: hasDiscount ? 'sale' : undefined,
+    };
+}
+
+/**
+ * Map a recommended product from AI recommendation service to ProductCardData
+ */
+export function mapRecommendedProduct(product: {
+    id: number;
+    name: string;
+    slug: string;
+    price: number;
+    capitalPrice?: number;
+    image: string;
+    brandName?: string;
+    categoryName?: string;
+    shopName?: string;
+    averageScore?: number;
+    ratingCount?: number;
+    highlightBadge?: string;
+}): ProductCardData {
+    const hasDiscount = product.capitalPrice && product.capitalPrice > product.price;
+    return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        image: product.image || PLACEHOLDER_IMAGE,
+        price: product.price,
+        originalPrice: hasDiscount ? product.capitalPrice : undefined,
+        rating: product.averageScore || 0,
+        reviews: product.ratingCount || 0,
+        category: product.categoryName || '',
+        shopName: product.shopName,
+        badge: hasDiscount ? 'sale' : undefined,
+        customBadge: product.highlightBadge || undefined,
     };
 }
 

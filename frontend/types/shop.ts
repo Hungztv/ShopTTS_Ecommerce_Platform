@@ -42,6 +42,8 @@ export interface ShopDto {
   logoUrl: string | null;
   coverUrl: string | null;
   status: string; // "Inactive" | "Active" | "Suspended"
+  rating?: number;
+  totalRatings?: number;
   createdAt: string;
   updatedAt: string | null;
 }
