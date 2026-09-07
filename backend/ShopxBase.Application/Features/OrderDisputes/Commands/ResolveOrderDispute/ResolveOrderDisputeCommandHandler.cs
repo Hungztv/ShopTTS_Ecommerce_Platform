@@ -28,7 +28,10 @@ public class ResolveOrderDisputeCommandHandler : IRequestHandler<ResolveOrderDis
 
             if (order != null)
             {
+                var prevStatus = order.Status;
                 order.Status = (int)OrderStatus.Refunded; // 5
+                await ShopxBase.Application.Features.ShopWallets.Services.ShopWalletSettlementHelper
+                    .ProcessOrderSettlementAsync(_unitOfWork, order, prevStatus, (int)OrderStatus.Refunded);
             }
         }
         else // ReleaseToSeller

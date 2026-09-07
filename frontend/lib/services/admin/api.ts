@@ -14,7 +14,7 @@ const api = axios.create({
 // Request interceptor - add token
 api.interceptors.request.use(
     (config) => {
-        const token = Cookies.get('accessToken');
+        const token = Cookies.get('accessToken') || Cookies.get('supabaseAccessToken');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }

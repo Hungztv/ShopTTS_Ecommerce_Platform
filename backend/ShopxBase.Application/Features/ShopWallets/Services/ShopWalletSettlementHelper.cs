@@ -98,6 +98,45 @@ public static class ShopWalletSettlementHelper
                 }
             }
         }
+        // 4. Đơn hàng bị Hoàn tiền (Status = 5) theo phán quyết trọng tài hoặc đổi trả
+        else if (newStatus == 5)
+        {
+            foreach (var group in shopGroups)
+            {
+                var shopId = group.Key;
+                var shopRevenue = group.Sum(d => d.Price * d.Quantity);
+
+                var wallets = await unitOfWork.ShopWallets.FindAsync(w => w.ShopId == shopId);
+                var wallet = wallets.FirstOrDefault();
+
+                if (wallet != null)
+                {
+                    if (previousStatus == 3)
+                    {
+                        wallet.AvailableBalance = Math.Max(0, wallet.AvailableBalance - shopRevenue);
+                        wallet.UpdatedAt = DateTime.UtcNow;
+                        await unitOfWork.ShopWallets.UpdateAsync(wallet);
+
+                        var tx = new WalletTransaction
+                        {
+                            ShopId = shopId,
+                            OrderId = order.Id,
+                            Amount = -shopRevenue,
+                            Type = WalletTransactionType.RefundDeduction,
+                            Description = $"Khấu trừ hoàn tiền đơn hàng #{order.OrderCode}",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await unitOfWork.WalletTransactions.AddAsync(tx);
+                    }
+                    else
+                    {
+                        wallet.PendingBalance = Math.Max(0, wallet.PendingBalance - shopRevenue);
+                        wallet.UpdatedAt = DateTime.UtcNow;
+                        await unitOfWork.ShopWallets.UpdateAsync(wallet);
+                    }
+                }
+            }
+        }
         // 3. Đơn hàng mới vào quy trình (Status 1: Confirmed hoặc 2: Shipping)
         else if (newStatus == 1 || newStatus == 2)
         {

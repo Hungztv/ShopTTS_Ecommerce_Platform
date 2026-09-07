@@ -90,17 +90,29 @@ export default function OrdersPage() {
         setDisputeReason('');
     };
 
-    const handleSubmitDispute = (e: React.FormEvent) => {
+    const handleSubmitDispute = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!disputeReason.trim()) return;
+        if (!disputeOrder || !disputeReason.trim()) return;
 
         setDisputeSubmitting(true);
-        setTimeout(() => {
-            setDisputeSubmitting(false);
+        try {
+            await api.post('/OrderDisputes', {
+                orderId: disputeOrder.id,
+                reason: disputeReason.trim()
+            });
             setDisputeOrder(null);
-            setActionMessage('Đã gửi Yêu cầu Trả hàng / Hoàn tiền! Số tiền đơn hàng đã được đóng băng để xử lý.');
+            setDisputeReason('');
+            setActionMessage('Đã gửi yêu cầu Khiếu nại / Hoàn tiền thành công! Số tiền đơn hàng đã được đóng băng Escrow để Sàn can thiệp xử lý.');
             setTimeout(() => setActionMessage(''), 6000);
-        }, 1000);
+            await loadOrders();
+        } catch (err: any) {
+            console.error('Error submitting dispute:', err);
+            const msg = err.response?.data?.message || 'Có lỗi khi gửi yêu cầu khiếu nại (Đơn hàng có thể đã có khiếu nại đang xử lý)';
+            setActionMessage(msg);
+            setTimeout(() => setActionMessage(''), 6000);
+        } finally {
+            setDisputeSubmitting(false);
+        }
     };
 
     if (loading) {
