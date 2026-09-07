@@ -8,6 +8,7 @@ import { SectionHeader } from './SectionHeader';
 import { Product } from '@/lib/services/public-api';
 import { mapProduct, mapRecommendedProduct } from '@/lib/utils/product-mapper';
 import { getHomeFeed, RecommendedProduct, PersonalizedHomeFeed } from '@/lib/services/behavior-service';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DynamicHomeSectionsProps {
   initialFlashDeals: Product[];
@@ -20,6 +21,7 @@ export default function DynamicHomeSections({
   initialTrending,
   initialNewArrivals,
 }: DynamicHomeSectionsProps) {
+  const { user } = useAuth();
   const [flashDeals, setFlashDeals] = useState<any[]>(initialFlashDeals);
   const [trending, setTrending] = useState<any[]>(initialTrending);
   const [newArrivals, setNewArrivals] = useState<any[]>(initialNewArrivals);
@@ -34,30 +36,33 @@ export default function DynamicHomeSections({
     const loadFeed = async () => {
       try {
         const feed: PersonalizedHomeFeed | null = await getHomeFeed(10);
-        if (!isMounted || !feed) return;
+        if (!isMounted) return;
 
-        if (feed.recommendedForYou && feed.recommendedForYou.length > 0) {
-          setRecommended(feed.recommendedForYou);
-        }
+        if (feed) {
+          setRecommended(feed.recommendedForYou && feed.recommendedForYou.length > 0 ? feed.recommendedForYou : []);
+          setRecentlyViewed(feed.recentlyViewed && feed.recentlyViewed.length > 0 ? feed.recentlyViewed : []);
 
-        if (feed.hasPersonalizedData) {
-          setHasPersonalizedData(true);
-          if (feed.preferredCategories && feed.preferredCategories.length > 0) {
-            setPreferredCategories(feed.preferredCategories);
+          if (feed.hasPersonalizedData) {
+            setHasPersonalizedData(true);
+            setPreferredCategories(feed.preferredCategories || []);
+            setFlashDeals(feed.flashSale && feed.flashSale.length > 0 ? feed.flashSale : initialFlashDeals);
+            setNewArrivals(feed.newArrivals && feed.newArrivals.length > 0 ? feed.newArrivals : initialNewArrivals);
+            setTrending(feed.trending && feed.trending.length > 0 ? feed.trending : initialTrending);
+          } else {
+            setHasPersonalizedData(false);
+            setPreferredCategories([]);
+            setFlashDeals(initialFlashDeals);
+            setNewArrivals(initialNewArrivals);
+            setTrending(initialTrending);
           }
-          if (feed.flashSale && feed.flashSale.length > 0) {
-            setFlashDeals(feed.flashSale);
-          }
-          if (feed.newArrivals && feed.newArrivals.length > 0) {
-            setNewArrivals(feed.newArrivals);
-          }
-          if (feed.trending && feed.trending.length > 0) {
-            setTrending(feed.trending);
-          }
-        }
-
-        if (feed.recentlyViewed && feed.recentlyViewed.length > 0) {
-          setRecentlyViewed(feed.recentlyViewed);
+        } else {
+          setRecommended([]);
+          setRecentlyViewed([]);
+          setHasPersonalizedData(false);
+          setPreferredCategories([]);
+          setFlashDeals(initialFlashDeals);
+          setNewArrivals(initialNewArrivals);
+          setTrending(initialTrending);
         }
 
         setLoadedPersonalized(true);
@@ -70,7 +75,7 @@ export default function DynamicHomeSections({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.id, initialFlashDeals, initialTrending, initialNewArrivals]);
 
   const renderCard = (item: any) => {
     if ('highlightBadge' in item || 'averageScore' in item) {

@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import Cookies from 'js-cookie';
 import type { User } from '@/types/auth';
 import * as authService from '@/lib/services/auth-service';
+import { resetSessionId } from '@/lib/services/behavior-service';
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             if (result.user) {
                 setUser(normalizeUserRoles(result));
+                resetSessionId(result.user.id);
             }
         }
 
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             if (result.user) {
                 setUser(normalizeUserRoles(result));
+                resetSessionId(result.user.id);
             }
         }
 
@@ -122,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Cookies.remove('supabaseAccessToken');
         Cookies.remove('refreshToken');
         setUser(null);
+        resetSessionId(null);
     };
 
     // OAuth Login (Google, GitHub, etc.)
@@ -158,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 Cookies.set('accessToken', accessToken, { expires: 1 });
             }
             setUser(normalizeUserRoles(result));
+            resetSessionId(result.user.id);
             return true;
         }
         return false;

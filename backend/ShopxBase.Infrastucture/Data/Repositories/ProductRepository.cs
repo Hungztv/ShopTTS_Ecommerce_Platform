@@ -71,15 +71,26 @@ namespace ShopxBase.Infrastructure.Data.Repositories
         public async Task<(IEnumerable<Product> items, int total)> GetFilteredAsync(
             System.Linq.Expressions.Expression<Func<Product, bool>> predicate,
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? sortBy = null,
+            string? sortOrder = null)
         {
             var query = _dbSet.AsNoTracking()
                 .Include(p => p.Brand)
                 .Include(p => p.Category)
                 .Include(p => p.Shop)
                 .Where(p => !p.IsDeleted)
-                .Where(predicate)
-                .OrderByDescending(p => p.CreatedAt);
+                .Where(predicate);
+
+            var isAsc = string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase);
+            query = (sortBy?.ToLower()) switch
+            {
+                "price" => isAsc ? query.OrderBy(p => p.Price) : query.OrderByDescending(p => p.Price),
+                "soldout" or "sold" => isAsc ? query.OrderBy(p => p.SoldOut) : query.OrderByDescending(p => p.SoldOut),
+                "rating" or "averagescore" => isAsc ? query.OrderBy(p => p.AverageScore) : query.OrderByDescending(p => p.AverageScore),
+                "name" => isAsc ? query.OrderBy(p => p.Name) : query.OrderByDescending(p => p.Name),
+                _ => isAsc ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt)
+            };
 
             var total = await query.CountAsync();
             var items = await query

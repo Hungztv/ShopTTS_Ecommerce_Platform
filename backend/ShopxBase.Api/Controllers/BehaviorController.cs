@@ -83,6 +83,7 @@ public class BehaviorController : ControllerBase
         [FromQuery] int limit = 8)
     {
         var userId = GetUserId();
+        _logger.LogInformation("[Behavior HomeFeed] User: {UserId}, Session: {SessionId}", userId ?? "guest", sessionId);
         var feed = await _behaviorService.GetHomeFeedAsync(userId, sessionId, limit);
         return Ok(new { success = true, data = feed });
     }
@@ -96,6 +97,7 @@ public class BehaviorController : ControllerBase
         [FromQuery] int limit = 8)
     {
         var userId = GetUserId();
+        _logger.LogInformation("[Behavior Recommendations] User: {UserId}, Session: {SessionId}", userId ?? "guest", sessionId);
         var products = await _behaviorService.GetPersonalizedRecommendationsAsync(userId, sessionId, limit);
 
         return Ok(new { success = true, data = products });
@@ -110,6 +112,7 @@ public class BehaviorController : ControllerBase
         [FromQuery] int limit = 8)
     {
         var userId = GetUserId();
+        _logger.LogInformation("[Behavior RecentlyViewed] User: {UserId}, Session: {SessionId}", userId ?? "guest", sessionId);
         var products = await _behaviorService.GetRecentlyViewedAsync(userId, sessionId, limit);
 
         return Ok(new { success = true, data = products });

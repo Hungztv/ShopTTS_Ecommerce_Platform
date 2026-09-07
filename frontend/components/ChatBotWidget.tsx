@@ -628,18 +628,21 @@ export default function ChatBotWidget() {
             // Could show intent indicator
           },
           onCleanReply: (reply) => {
-            fullContent = reply;
-            setMessages((prev) => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last.role === "assistant") {
-                updated[updated.length - 1] = {
-                  ...last,
-                  content: reply,
-                };
-              }
-              return updated;
-            });
+            if (!reply || typeof reply !== "string") return;
+            if (reply.length >= fullContent.length * 0.5 || fullContent.length < 100) {
+              fullContent = reply;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === "assistant") {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    content: reply,
+                  };
+                }
+                return updated;
+              });
+            }
           },
           onDone: () => {
             setMessages((prev) => {
@@ -813,15 +816,18 @@ export default function ChatBotWidget() {
                 },
                 onIntent: () => {},
                 onCleanReply: (reply) => {
-                  fullContent = reply;
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last.role === "assistant") {
-                      updated[updated.length - 1] = { ...last, content: reply };
-                    }
-                    return updated;
-                  });
+                  if (!reply || typeof reply !== "string") return;
+                  if (reply.length >= fullContent.length * 0.5 || fullContent.length < 100) {
+                    fullContent = reply;
+                    setMessages((prev) => {
+                      const updated = [...prev];
+                      const last = updated[updated.length - 1];
+                      if (last && last.role === "assistant") {
+                        updated[updated.length - 1] = { ...last, content: reply };
+                      }
+                      return updated;
+                    });
+                  }
                 },
                 onDone: () => {
                   setMessages((prev) => {

@@ -110,7 +110,7 @@ public class ChatBotController : ControllerBase
             }
 
             // ── RAG: Embed query → vector search → inject context ──
-            var ragContext = await GetRagContextAsync(request.Message, products);
+            var ragContext = await GetRagContextAsync(request.Message, products, intent);
             if (!string.IsNullOrEmpty(ragContext))
                 extraContext = string.IsNullOrEmpty(extraContext)
                     ? ragContext
@@ -226,7 +226,7 @@ public class ChatBotController : ControllerBase
             }
 
             // ── RAG: Embed query → vector search → inject context ──
-            var ragContext = await GetRagContextAsync(request.Message, products);
+            var ragContext = await GetRagContextAsync(request.Message, products, intent);
             if (!string.IsNullOrEmpty(ragContext))
                 extraContext = string.IsNullOrEmpty(extraContext)
                     ? ragContext
@@ -510,8 +510,20 @@ public class ChatBotController : ControllerBase
     // ══════════════════════════════════════════════════
 
     // ── RAG: Embed query → vector search → return context string ──
-    private async Task<string> GetRagContextAsync(string userMessage, List<ChatProductInfo>? foundProducts = null)
+    private async Task<string> GetRagContextAsync(
+        string userMessage, List<ChatProductInfo>? foundProducts = null, ChatIntent? intent = null)
     {
+        // Không inject context sản phẩm RAG vào các cuộc hội thoại về chính sách, người bán, hệ thống shop, đơn hàng, mặt hàng không hỗ trợ, hoặc lời chào
+        if (intent == ChatIntent.StorePolicy ||
+            intent == ChatIntent.SellerInquiry ||
+            intent == ChatIntent.ShopDirectory ||
+            intent == ChatIntent.OrderTracking ||
+            intent == ChatIntent.UnsupportedProduct ||
+            intent == ChatIntent.Greeting)
+        {
+            return "";
+        }
+
         try
         {
             // 1️⃣ Embed the user query using Gemini (RETRIEVAL_QUERY task type)
@@ -629,13 +641,33 @@ public class ChatBotController : ControllerBase
         switch (intent)
         {
             case ChatIntent.Greeting:
-            case ChatIntent.StorePolicy:
-                // Người dùng chào hỏi hoặc hỏi chính sách cửa hàng: KHÔNG xổ card sản phẩm
                 products = new List<ChatProductInfo>();
+                extraContext = "Khách hàng gửi lời chào hoặc cảm ơn. Hãy chào đón nồng nhiệt bằng phong cách ShopTTS AI thân thiện, giới thiệu ngắn gọn các ngành hàng công nghệ chính và hỏi xem có thể hỗ trợ gì cho khách.";
+                break;
+
+            case ChatIntent.UnsupportedProduct:
+                products = new List<ChatProductInfo>();
+                _productService.IsUnsupportedProduct(message, out var unsupportedItem);
+                extraContext = GetUnsupportedProductContext(unsupportedItem);
+                break;
+
+            case ChatIntent.StorePolicy:
+                products = new List<ChatProductInfo>();
+                extraContext = GetStorePolicyContext(message);
+                break;
+
+            case ChatIntent.SellerInquiry:
+                products = new List<ChatProductInfo>();
+                extraContext = GetSellerContext();
+                break;
+
+            case ChatIntent.ShopDirectory:
+                products = new List<ChatProductInfo>();
+                extraContext = await GetShopsDirectoryContextAsync();
                 break;
 
             case ChatIntent.OrderTracking:
-                extraContext = await GetOrderContextAsync(message);
+                extraContext = await GetOrderContextAsync(message, userId);
                 products = new List<ChatProductInfo>();
                 break;
 
@@ -656,7 +688,6 @@ public class ChatBotController : ControllerBase
                 break;
 
             case ChatIntent.Trending:
-                // Thử tìm theo từ khóa trước (nếu người dùng hỏi 'laptop bán chạy' / 'điện thoại hot')
                 products = await _productService.SmartSearchAsync(message, minPrice, maxPrice, 8);
                 if (!products.Any())
                 {
@@ -669,11 +700,10 @@ public class ChatBotController : ControllerBase
             case ChatIntent.PriceRange:
             case ChatIntent.SearchProduct:
             default:
-                // Tìm kiếm thông minh hướng mục tiêu: đúng danh mục, đúng tầm giá, đúng nhu cầu (gaming, pin trâu...)
                 products = await _productService.SmartSearchAsync(message, minPrice, maxPrice, 8);
 
-                // Nếu hỏi gợi ý chung mà không nêu danh mục/sản phẩm, lấy recommendation từ hành vi
-                if (!products.Any() && (intent == ChatIntent.Recommendation || message.Length < 15))
+                // Nếu hỏi gợi ý chung mà không nêu danh mục/sản phẩm cụ thể, lấy recommendation từ hành vi
+                if (!products.Any() && (intent == ChatIntent.Recommendation || (intent != ChatIntent.SearchProduct && message.Length < 15)))
                 {
                     var recProducts = await _behaviorService.GetPersonalizedRecommendationsAsync(userId, sessionId, 6);
                     if (recProducts.Any())
@@ -698,6 +728,10 @@ public class ChatBotController : ControllerBase
                         var lowestP = products.OrderBy(p => p.Price).First();
                         extraContext += $"\n\n⚠️ LƯU Ý BẮT BUỘC VỀ NGÂN SÁCH: Khách hàng tìm kiếm sản phẩm với giá dưới {maxPrice:N0}đ. Tuy nhiên hiện tại trong kho ShopTTS, sản phẩm có giá thấp nhất thuộc danh mục này là **{lowestP.Name}** với giá **{lowestP.Price:N0}đ** (chỉ chênh lệch {lowestP.Price - maxPrice.Value:N0}đ). Bạn PHẢI TRUNG THỰC THÔNG BÁO RÕ RÀNG cho khách: 'Hiện tại ShopTTS chưa có mẫu nào dưới {maxPrice:N0}đ, nhưng mẫu có giá tốt nhất và gần nhất với ngân sách của bạn là {lowestP.Name} ({lowestP.Price:N0}đ)'. TUYỆT ĐỐI KHÔNG được bịa rằng có mẫu dưới {maxPrice:N0}đ!";
                     }
+                }
+                else if (!products.Any() && (intent == ChatIntent.SearchProduct || intent == ChatIntent.PriceRange))
+                {
+                    extraContext = "⚠️ KHÔNG TÌM THẤY SẢN PHẨM TRONG KHO: Hiện tại hệ thống không tìm thấy sản phẩm nào khớp với tiêu chí tìm kiếm này của khách. Hãy thông báo chân thành rằng ShopTTS hiện chưa có sản phẩm đúng yêu cầu đó, và gợi ý khách tham khảo các sản phẩm hoặc danh mục liên quan gần nhất hiện có trên sàn. TUYỆT ĐỐI KHÔNG bịa ra sản phẩm!";
                 }
                 break;
         }
@@ -738,59 +772,69 @@ public class ChatBotController : ControllerBase
     }
 
     // ── Intent Detection ──
-    private static ChatIntent DetectIntent(string message)
+    private ChatIntent DetectIntent(string message)
     {
         var lower = message.ToLower().Trim();
 
-        // 1. Order tracking
-        if (Regex.IsMatch(lower, @"(đơn hàng|don hang|order|tracking|theo dõi|tình trạng đơn|mã đơn|tra cứu đơn|kiểm tra đơn|ord-)"))
+        // 0. Mặt hàng không kinh doanh (tủ lạnh, máy giặt, xe máy...)
+        if (_productService.IsUnsupportedProduct(lower, out _))
+            return ChatIntent.UnsupportedProduct;
+
+        // 1. Kênh người bán / Đăng ký mở shop
+        if (Regex.IsMatch(lower, @"(mở shop|mo shop|bán hàng trên|ban hang tren|đăng ký bán hàng|dang ky ban hang|người bán|nguoi ban|kênh người bán|kenh nguoi ban|mở gian hàng|mo gian hang|chính sách người bán|hoa hồng|hoa hong)"))
+            return ChatIntent.SellerInquiry;
+
+        // 2. Hệ thống cửa hàng / Showroom / Địa chỉ chi nhánh
+        if (Regex.IsMatch(lower, @"(hệ thống cửa hàng|he thong cua hang|danh sách cửa hàng|danh sach cua hang|danh sách shop|danh sach shop|các shop|cac shop|showroom|chi nhánh|chi nhanh|địa chỉ cửa hàng|dia chi cua hang)"))
+            return ChatIntent.ShopDirectory;
+
+        // 3. Tra cứu & Quản lý đơn hàng (hủy đơn, đổi địa chỉ, theo dõi đơn...)
+        if (Regex.IsMatch(lower, @"(đơn hàng|don hang|order|tracking|theo dõi|tình trạng đơn|mã đơn|tra cứu đơn|kiểm tra đơn|ord-|hủy đơn|huy don|đổi địa chỉ)"))
             return ChatIntent.OrderTracking;
 
-        // 2. Coupon
+        // 4. Mã giảm giá / Coupon / Voucher
         if (Regex.IsMatch(lower, @"(mã giảm|ma giam|coupon|voucher|khuyến mãi|khuyen mai|giảm giá|giam gia|mã code|discount|ưu đãi|deal)"))
             return ChatIntent.CouponInquiry;
 
-        // 3. Comparison
+        // 5. So sánh sản phẩm
         if (Regex.IsMatch(lower, @"(so sánh|so sanh|khác gì|khac gi|hay hơn|tốt hơn|nên mua cái nào|nên chọn|compare|vs|versus|giữa .* và)"))
             return ChatIntent.Comparison;
 
-        // 4. Greeting
+        // 6. Lời chào hỏi / cảm ơn
         if (Regex.IsMatch(lower, @"^(chào|chao|hello|hi|alo|xin chào|xin chao|good morning|good afternoon|good evening|hey|cảm ơn|cam on|thanks|thank you|tạm biệt|tam biet|bye)\b"))
         {
             if (!Regex.IsMatch(lower, @"(điện thoại|laptop|tai nghe|đồng hồ|máy tính|mua|giá|sản phẩm|tư vấn|tìm|cần)"))
                 return ChatIntent.Greeting;
         }
 
-        // 5. Store Policy
-        if (Regex.IsMatch(lower, @"(chính sách|chinh sach|đổi trả|doi tra|bảo hành|bao hanh|vận chuyển|van chuyen|giao hàng|giao hang|phí ship|phi ship|địa chỉ|dia chi|cửa hàng ở đâu|giờ mở cửa|thời gian nhận)"))
+        // 7. Chính sách cửa hàng (đổi trả, bảo hành, ship, thanh toán, hotline...)
+        if (Regex.IsMatch(lower, @"(chính sách|chinh sach|đổi trả|doi tra|bảo hành|bao hanh|vận chuyển|van chuyen|giao hàng|giao hang|phí ship|phi ship|freeship|miễn phí ship|thanh toán|thanh toan|cod|trả góp|tra gop|thời gian nhận|bao lâu nhận|hotline|tổng đài|email hỗ trợ|địa chỉ|dia chi|trụ sở|tru so)"))
         {
-            if (!Regex.IsMatch(lower, @"(mua|bán|giá|điện thoại|laptop|tai nghe)"))
+            if (!Regex.IsMatch(lower, @"(mua|bán|giá|điện thoại|laptop|tai nghe|bàn phím|chuột)"))
                 return ChatIntent.StorePolicy;
         }
 
-        // 6. Category browse (người dùng hỏi: shop có những danh mục gì, bán gì)
+        // 8. Duyệt danh mục
         if (Regex.IsMatch(lower, @"^(danh mục|danh muc|loại sản phẩm|có những gì|bán những gì|categories|chủng loại|phân loại)\b"))
             return ChatIntent.CategoryBrowse;
 
-        // 7. SPECIFIC PRODUCT / CATEGORY QUERY - Ưu tiên hàng đầu cho việc tìm sản phẩm!
-        // Nếu câu hỏi có tên danh mục hoặc tên sản phẩm (laptop, điện thoại, macbook, tai nghe, màn hình...),
-        // luôn gán là SearchProduct để SmartSearchAsync tìm đúng danh mục sản phẩm đó!
+        // 9. Tìm sản phẩm cụ thể theo danh mục hoặc từ khóa thiết bị
         if (Regex.IsMatch(lower, @"(bàn phím|ban phim|keyboard|chuột|chuot|mouse|keychron|akko|màn hình|man hinh|monitor|laptop|macbook|notebook|thinkpad|vivobook|zenbook|legion|tuf|omen|spectre|inspiron|phone|smartphone|điện thoại|dien thoai|tai nghe|headphone|earbuds|airpods|đồng hồ|dong ho|smartwatch|ipad|máy tính bảng|may tinh bang|máy tính|may tinh|tivi|tv|loa|airtag|samsung|apple|iphone|xiaomi|oppo|dell|asus|lenovo|hp|msi|giày|quần|áo|túi|balo|camera|wifi|router)"))
             return ChatIntent.SearchProduct;
 
-        // 8. Price range
+        // 10. Khoảng giá
         if (Regex.IsMatch(lower, @"(tầm giá|khoảng giá|ngân sách|tài chính|dưới \d|trên \d|từ \d.*đến|\d+\s*(triệu|trieu|củ|cu|tr|m|k|nghìn|ngàn)|budget|rẻ nhất|đắt nhất|bao nhiêu tiền)"))
             return ChatIntent.PriceRange;
 
-        // 9. Pure Trending (chỉ khi hỏi chung chung không có tên sản phẩm cụ thể, dùng \btop\b tránh dính chữ laptop)
+        // 11. Trending / Bán chạy
         if (Regex.IsMatch(lower, @"(bán chạy|ban chay|trending|phổ biến|pho bien|\bhot\b|best seller|nhiều người mua|nổi bật|xu hướng|yêu thích|đáng mua nhất|\btop\b)"))
             return ChatIntent.Trending;
 
-        // 10. Generic recommendation
+        // 12. Gợi ý cá nhân hóa
         if (Regex.IsMatch(lower, @"(gợi ý cho tôi|đề xuất|phù hợp với tôi|recommend|cá nhân|dành cho tôi|tư vấn cho tôi|hợp với tôi|chọn giúp tôi|tư vấn)"))
             return ChatIntent.Recommendation;
 
-        // 11. General Search
+        // 13. Tìm kiếm chung
         if (Regex.IsMatch(lower, @"(tìm|mua|cần|muốn|gợi ý|suggest|giới thiệu|cho tôi|search|sản phẩm)"))
             return ChatIntent.SearchProduct;
 
@@ -969,9 +1013,12 @@ public class ChatBotController : ControllerBase
         return (min, max);
     }
 
-    // ── Order context for tracking ──
-    private async Task<string> GetOrderContextAsync(string message)
+    // ── Order context for tracking & management ──
+    private async Task<string> GetOrderContextAsync(string message, string? userId)
     {
+        var lower = message.ToLower();
+        var isCancelInquiry = Regex.IsMatch(lower, @"(hủy đơn|huy don|hủy|huy|cancel)");
+
         // Try to extract order code — support ORD-20260228102553-7014, ORD-12345, etc.
         var codeMatch = Regex.Match(message, @"(ORD[-\s]?[\w-]+)", RegexOptions.IgnoreCase);
         if (!codeMatch.Success)
@@ -1015,6 +1062,14 @@ public class ChatBotController : ControllerBase
                     itemsInfo = $"\n- Sản phẩm đã đặt:\n{string.Join("\n", itemLines)}";
                 }
 
+                var cancelNote = "";
+                if (isCancelInquiry)
+                {
+                    cancelNote = order.Status == 0
+                        ? "\n\n💡 HƯỚNG DẪN HỦY: Đơn hàng này đang ở trạng thái '⏳ Chờ xử lý'. Khách có thể tự bấm nút 'Hủy đơn hàng' trực tiếp tại trang [Đơn hàng của tôi](/orders)."
+                        : $"\n\n⚠️ LƯU Ý HỦY ĐƠN: Đơn hàng hiện đang ở trạng thái '{statusText}', do đó không thể tự hủy trên web. Hãy hướng dẫn khách liên hệ ngay Hotline 1900 xxxx để được hỗ trợ can thiệp.";
+                }
+
                 return $@"⚠️ ĐÃ TÌM THẤY ĐƠN HÀNG TRONG HỆ THỐNG — BẮT BUỘC HIỂN THỊ THÔNG TIN NÀY CHO KHÁCH:
 - Mã đơn: {order.OrderCode}
 - Trạng thái: {statusText}
@@ -1026,13 +1081,141 @@ public class ChatBotController : ControllerBase
 - Giảm giá: {order.DiscountAmount:N0}đ{(string.IsNullOrEmpty(order.CouponCode) ? "" : $" (Mã: {order.CouponCode})")}
 - Tổng tiền: {order.Total:N0}đ
 - Thanh toán: {order.PaymentMethod} ({order.PaymentStatus})
-- Ngày đặt: {order.CreatedAt:dd/MM/yyyy HH:mm}{itemsInfo}
+- Ngày đặt: {order.CreatedAt:dd/MM/yyyy HH:mm}{itemsInfo}{cancelNote}
 
 HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔNG ĐƯỢC NÓI 'KHÔNG THỂ TRUY CẬP' HAY 'VÌ LÝ DO BẢO MẬT'.";
             }
         }
 
-        return "KHÔNG TÌM THẤY ĐƠN HÀNG VỚI MÃ NÀY. Hãy yêu cầu khách cung cấp lại mã đơn hàng chính xác. Mã đơn thường có dạng ORD-YYYYMMDDHHMMSS-XXXX.";
+        // If no code was provided but user is logged in, lookup recent orders of this user
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var userOrders = (await _unitOfWork.Orders.FindAsync(o => o.UserId == userId))
+                .OrderByDescending(o => o.CreatedAt)
+                .Take(3)
+                .ToList();
+
+            if (userOrders.Any())
+            {
+                var orderLines = userOrders.Select((o, i) =>
+                {
+                    var st = o.Status switch
+                    {
+                        0 => "⏳ Chờ xử lý",
+                        1 => "✅ Đã xác nhận",
+                        2 => "🚚 Đang giao",
+                        3 => "📦 Đã giao thành công",
+                        4 => "❌ Đã hủy",
+                        _ => "Chưa xác định"
+                    };
+                    return $"{i + 1}. Mã đơn: `{o.OrderCode}` | Ngày: {o.CreatedAt:dd/MM/yyyy} | Tổng: {o.Total:N0}đ | Trạng thái: {st}";
+                });
+
+                return $@"📋 CÁC ĐƠN HÀNG GẦN ĐÂY CỦA BẠN:
+{string.Join("\n", orderLines)}
+
+Hãy thông báo danh sách này cho khách hàng và hướng dẫn khách cung cấp mã đơn cụ thể nếu muốn xem chi tiết hoặc thao tác.";
+            }
+        }
+
+        if (isCancelInquiry)
+        {
+            return "Khách hàng muốn hủy đơn hàng nhưng chưa cung cấp mã đơn. Hãy hướng dẫn: Nếu đơn đang ở trạng thái 'Chờ xử lý', khách có thể vào mục [Đơn hàng của tôi](/orders) để bấm hủy, hoặc cung cấp mã đơn (ORD-...) để bạn kiểm tra.";
+        }
+
+        return "KHÔNG TÌM THẤY ĐƠN HÀNG VỚI MÃ NÀY. Hãy yêu cầu khách cung cấp lại mã đơn hàng chính xác (dạng ORD-...) hoặc truy cập mục [Đơn hàng của tôi](/orders) trên ShopTTS để kiểm tra.";
+    }
+
+    // ── Store Policy Context ──
+    private static string GetStorePolicyContext(string message)
+    {
+        return @"📌 THÔNG TIN CHÍNH SÁCH CHUẨN XÁC CỦA SÀN THƯƠNG MẠI ĐIỆN TỬ SHOPTTS:
+Bạn BẮT BUỘC phải dựa vào các thông tin chính thức dưới đây để giải đáp, TUYỆT ĐỐI KHÔNG tự bịa số ngày hay mức phí:
+
+1. CHÍNH SÁCH ĐỔI TRẢ (RETURN POLICY):
+   - Thời hạn: **30 ngày** kể từ ngày khách nhận hàng thành công.
+   - Điều kiện: Đổi mới 1-1 hoặc hoàn tiền miễn phí 100% đối với các sản phẩm có lỗi kỹ thuật từ nhà sản xuất, giao sai mẫu, sai số lượng hoặc hư hỏng do vận chuyển.
+   - Yêu cầu: Sản phẩm còn nguyên vẹn, đầy đủ phụ kiện, tem mác, hộp và hóa đơn/chứng từ mua hàng.
+   - Phí đổi trả: **Miễn phí 100%** chi phí vận chuyển đổi trả nếu lỗi từ phía ShopTTS hoặc người bán.
+
+2. CHÍNH SÁCH BẢO HÀNH (WARRANTY):
+   - Cam kết: 100% sản phẩm là hàng chính hãng mới nguyên seal.
+   - Thời gian bảo hành: Từ **12 đến 24 tháng** chính hãng tùy theo từng dòng sản phẩm và quy định của nhà sản xuất (Apple, Samsung, Logitech, Asus, Lenovo, Sony, Keychron, Akko...).
+   - Địa điểm bảo hành: Khách hàng có thể mang tới Trung tâm bảo hành ủy quyền của hãng trên toàn quốc hoặc gửi về trung tâm hỗ trợ của ShopTTS.
+
+3. CHÍNH SÁCH VẬN CHUYỂN & GIAO HÀNG (SHIPPING):
+   - **MIỄN PHÍ VẬN CHUYỂN (FREESHIP)**: Áp dụng cho tất cả đơn hàng từ **500.000đ** trở lên trên toàn quốc.
+   - Phí ship tiêu chuẩn: Đồng giá **30.000đ** cho đơn hàng dưới 500.000đ.
+   - Thời gian giao hàng dự kiến:
+     + Nội thành Hà Nội & TP. Hồ Chí Minh: 1 - 2 ngày làm việc.
+     + Các tỉnh thành khác trên toàn quốc: 2 - 4 ngày làm việc.
+     + Vùng sâu vùng xa, hải đảo: 3 - 5 ngày làm việc.
+   - Đơn vị vận chuyển đối tác: GHN (Giao Hàng Nhanh), GHTK (Giao Hàng Tiết Kiệm), Viettel Post.
+
+4. PHƯƠNG THỨC THANH TOÁN (PAYMENT METHODS):
+   - Thanh toán khi nhận hàng (**COD - Cash on Delivery**): Khách được kiểm tra hàng trước khi thanh toán tiền mặt.
+   - Chuyển khoản ngân hàng trực tuyến qua cổng **VNPAY / VietQR / Quét mã QR code** ngân hàng tức thì.
+   - Thanh toán trực tuyến qua thẻ tín dụng / ghi nợ quốc tế (**Visa, Mastercard, JCB**).
+
+5. THÔNG TIN LIÊN HỆ & TRỤ SỞ:
+   - Hotline hỗ trợ: **1900 xxxx** (Phục vụ từ 8h00 - 21h00 hàng ngày, cả Thứ 7 & CN).
+   - Email: **support@shoptts.vn**.
+   - Trụ sở văn phòng: Tòa nhà Innovation, Hà Nội.
+   - Danh sách các cửa hàng / đại lý: Khách hàng có thể tra cứu toàn bộ tại trang **Hệ thống cửa hàng** (`/shops`).
+
+6. HƯỚNG DẪN HỦY ĐƠN HÀNG:
+   - Đơn ở trạng thái '⏳ Chờ xử lý': Khách hàng có thể tự bấm nút **'Hủy đơn'** ngay tại mục **[Đơn hàng của tôi](/orders)**.
+   - Đơn đã '✅ Đã xác nhận' hoặc '🚚 Đang giao': Không thể tự hủy trên web; khách hàng cần liên hệ ngay Hotline 1900 xxxx để nhân viên can thiệp chặn giao.";
+    }
+
+    // ── Seller / Merchant Context ──
+    private static string GetSellerContext()
+    {
+        return @"📌 HƯỚNG DẪN MỞ GIAN HÀNG & BÁN HÀNG TRÊN SHOPTTS:
+1. Đăng ký mở shop:
+   - Truy cập trang đăng ký đối tác người bán tại đường dẫn: `/seller/register` (hoặc bấm nút 'Kênh Người Bán' trên đầu trang web).
+   - Điền thông tin gian hàng: Tên shop, số điện thoại, email, thông tin định danh (CCCD/Mã số thuế) và tài khoản ngân hàng để nhận thanh toán doanh thu.
+2. Quản lý bán hàng:
+   - Sau khi đăng ký thành công, truy cập cổng quản lý người bán tại: `/seller`.
+   - Đăng tải sản phẩm không giới hạn, quản lý kho hàng, đơn hàng và theo dõi doanh thu trực quan.
+3. Chính sách & Quyền lợi:
+   - Miễn phí 100% phí tạo gian hàng ban đầu.
+   - Tích hợp sẵn hệ thống kết nối đơn vị vận chuyển và thanh toán tự động.
+   - Hỗ trợ công cụ tạo voucher khuyến mãi riêng cho từng shop.
+   - Hotline hỗ trợ đối tác bán hàng: 1900 xxxx (8h00 - 21h00) | Email: support@shoptts.vn.";
+    }
+
+    // ── Shop Directory Context ──
+    private async Task<string> GetShopsDirectoryContextAsync()
+    {
+        try
+        {
+            var activeShops = await _unitOfWork.Shops.FindAsync(s => !s.IsDeleted);
+            var shopList = activeShops.ToList();
+            var shopNames = shopList.Select(s => s.Name).Take(8).ToList();
+            return $@"📌 HỆ THỐNG CỬA HÀNG (SHOPS) TRÊN SHOPTTS:
+- Khách hàng có thể xem toàn bộ hệ thống các gian hàng đối tác uy tín đang hoạt động tại trang **Hệ thống cửa hàng**: `/shops`.
+- Hiện tại có {shopList.Count} gian hàng chính thức trên sàn (ví dụ: {string.Join(", ", shopNames)}...).
+- Khách hàng có thể xem từng gian hàng chi tiết tại đường dẫn `/shops/[slug]`.
+- Trụ sở chính và văn phòng hỗ trợ ShopTTS: Tòa nhà Innovation, Hà Nội. Hotline: 1900 xxxx.";
+        }
+        catch
+        {
+            return "📌 HỆ THỐNG CỬA HÀNG: Khách hàng có thể xem danh bạ toàn bộ các shop đang hoạt động tại trang **Hệ thống cửa hàng**: `/shops`.";
+        }
+    }
+
+    // ── Unsupported Product Context ──
+    private static string GetUnsupportedProductContext(string item)
+    {
+        var name = string.IsNullOrWhiteSpace(item) ? "mặt hàng này" : item;
+        return $@"⚠️ MẶT HÀNG SÀN CHƯA KINH DOANH: Khách hàng đang hỏi về '{name}'.
+ShopTTS là sàn thương mại điện tử chuyên sâu về **Thiết bị công nghệ, Điện thoại, Laptop, Màn hình, Bàn phím cơ, Chuột máy tính, Phụ kiện, Đồng hồ thông minh, Thiết bị mạng, Gaming và Thời trang**.
+Hiện tại ShopTTS CHƯA KINH DOANH các mặt hàng điện lạnh cỡ lớn (tủ lạnh, máy giặt, điều hòa), xe cộ phương tiện, bất động sản, vé máy bay hay sách vở.
+BẮT BUỘC:
+1. Thông báo chân thành, lịch sự cho khách biết ShopTTS hiện chưa kinh doanh mặt hàng '{name}'.
+2. Giới thiệu các ngành hàng công nghệ chủ lực hiện có trên ShopTTS.
+3. TUYỆT ĐỐI KHÔNG tự tiện lấy laptop, điện thoại hay sản phẩm khác ra làm sản phẩm tương ứng!";
     }
 
     // ── Coupon context ──
@@ -1123,21 +1306,6 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
 📦 TRA CỨU ĐƠN HÀNG:
 - Khi có dữ liệu đơn hàng trong [THÔNG TIN BỔ SUNG]: BẮT BUỘC hiển thị TOÀN BỘ thông tin (Mã đơn, Người nhận, SĐT, Địa chỉ, Sản phẩm, Tạm tính, Ship, Giảm giá, Tổng tiền, Trạng thái đơn, Thanh toán) bằng Markdown sạch đẹp. TUYỆT ĐỐI KHÔNG nói 'không thể tra cứu' hay 'vì lý do bảo mật'.
 
-🧾 OPTIONAL STRUCTURED OUTPUT:
-- Cuối phản hồi, bạn có thể đính kèm khối JSON trong thẻ <response_json> ... </response_json> để giao diện tạo các nút hành động tương tác nhanh:
-```
-<response_json>
-{{
-    ""reply"": ""(nội dung trả lời Markdown)"",
-    ""suggestions"": [""Gợi ý 1"", ""Gợi ý 2""],
-    ""actions"": [
-        {{ ""type"": ""view"", ""productId"": 123, ""label"": ""Xem chi tiết"" }},
-        {{ ""type"": ""add_to_cart"", ""productId"": 123, ""label"": ""Thêm vào giỏ"" }}
-    ]
-}}
-</response_json>
-```
-
 Hotline hỗ trợ: 1900-xxxx | Email: support@shoptts.vn | Giờ phục vụ: 8:00 - 22:00
 {productContext}{categoryInfo}{extra}";
 
@@ -1168,18 +1336,32 @@ Hotline hỗ trợ: 1900-xxxx | Email: support@shoptts.vn | Giờ phục vụ: 8
             return "";
         }, RegexOptions.Singleline);
 
-        // Try to extract optional structured JSON wrapped in <response_json>...</response_json>
+        // Strip optional structured JSON wrapped in <response_json>...</response_json> without losing markdown reply
         try
         {
             var openTag = "<response_json>";
             var closeTag = "</response_json>";
             var idxOpen = clean.IndexOf(openTag, StringComparison.OrdinalIgnoreCase);
             var idxClose = clean.IndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
-            if (idxOpen >= 0 && idxClose > idxOpen)
+            if (idxOpen >= 0)
             {
-                var jsonText = clean.Substring(idxOpen + openTag.Length, idxClose - (idxOpen + openTag.Length)).Trim();
-                // Remove the JSON block from clean reply
-                clean = (clean.Substring(0, idxOpen) + clean.Substring(idxClose + closeTag.Length)).Trim();
+                string jsonText = "";
+                string remainingText = "";
+                if (idxClose > idxOpen)
+                {
+                    jsonText = clean.Substring(idxOpen + openTag.Length, idxClose - (idxOpen + openTag.Length)).Trim();
+                    remainingText = (clean.Substring(0, idxOpen) + clean.Substring(idxClose + closeTag.Length)).Trim();
+                }
+                else
+                {
+                    jsonText = clean.Substring(idxOpen + openTag.Length).Trim();
+                    remainingText = clean.Substring(0, idxOpen).Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(remainingText))
+                {
+                    clean = remainingText;
+                }
 
                 if (!string.IsNullOrEmpty(jsonText))
                 {
@@ -1187,12 +1369,7 @@ Hotline hỗ trợ: 1900-xxxx | Email: support@shoptts.vn | Giờ phục vụ: 8
                     {
                         using var doc = JsonDocument.Parse(jsonText);
                         var root = doc.RootElement;
-                        // If JSON contains 'reply', prefer it as clean reply
-                        if (root.TryGetProperty("reply", out var replyProp) && replyProp.ValueKind == JsonValueKind.String)
-                        {
-                            clean = replyProp.GetString() ?? clean;
-                        }
-                        // Merge suggestions from JSON
+                        // Merge suggestions from JSON if any
                         if (root.TryGetProperty("suggestions", out var suggProp) && suggProp.ValueKind == JsonValueKind.Array)
                         {
                             foreach (var s in suggProp.EnumerateArray())
@@ -1210,6 +1387,15 @@ Hotline hỗ trợ: 1900-xxxx | Email: support@shoptts.vn | Giờ phục vụ: 8
             }
         }
         catch { /* ignore */ }
+
+        // Strip leftover json code blocks if model outputted them at the end
+        clean = Regex.Replace(clean, @"```(?:json)?\s*\{\s*""(?:reply|suggestions|actions)""[\s\S]*?\}\s*```", "", RegexOptions.IgnoreCase).Trim();
+
+        // Safety check: if clean accidentally got wiped out or reduced to almost nothing compared to original, revert
+        if (clean.Length < 50 && reply.Length >= 150)
+        {
+            clean = Regex.Replace(reply, @"<response_json>[\s\S]*?</response_json>", "", RegexOptions.IgnoreCase).Trim();
+        }
 
         return (clean.TrimEnd(), suggestions.Distinct().ToArray());
     }
@@ -1338,7 +1524,10 @@ public enum ChatIntent
     CouponInquiry,
     CategoryBrowse,
     Comparison,
-    Recommendation
+    Recommendation,
+    SellerInquiry,
+    ShopDirectory,
+    UnsupportedProduct
 }
 
 public class ChatRequest

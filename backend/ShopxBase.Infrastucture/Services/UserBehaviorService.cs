@@ -90,6 +90,43 @@ public class UserBehaviorService : IUserBehaviorService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Safely fetch user behaviors isolating accounts:
+    /// - If userId is provided: fetch records belonging to this userId OR anonymous actions from this session (before login). NEVER records of other user accounts!
+    /// - If only sessionId is provided (guest): fetch ONLY unauthenticated records (UserId == null) for this session. NEVER records belonging to an authenticated account!
+    /// </summary>
+    private async Task<List<UserBehavior>> FetchBehaviorsAsync(
+        string? userId, string? sessionId, DateTime cutoff, BehaviorType? type = null, bool requireProduct = false)
+    {
+        IEnumerable<UserBehavior> result;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            result = await _unitOfWork.UserBehaviors.FindAsync(b =>
+                !b.IsDeleted
+                && b.CreatedAt >= cutoff
+                && (!type.HasValue || b.BehaviorType == type.Value)
+                && (!requireProduct || b.ProductId.HasValue)
+                && (b.UserId == userId || (b.UserId == null && sessionId != null && b.SessionId == sessionId)));
+        }
+        else if (!string.IsNullOrEmpty(sessionId))
+        {
+            result = await _unitOfWork.UserBehaviors.FindAsync(b =>
+                !b.IsDeleted
+                && b.CreatedAt >= cutoff
+                && (!type.HasValue || b.BehaviorType == type.Value)
+                && (!requireProduct || b.ProductId.HasValue)
+                && b.UserId == null
+                && b.SessionId == sessionId);
+        }
+        else
+        {
+            return new List<UserBehavior>();
+        }
+
+        return result.ToList();
+    }
+
     // ── Track a single behavior event ──
     public async Task TrackAsync(TrackBehaviorRequest request)
     {
@@ -123,6 +160,18 @@ public class UserBehaviorService : IUserBehaviorService
             };
 
             await _unitOfWork.UserBehaviors.AddAsync(behavior);
+
+            // If user is authenticated and session is provided, claim any earlier anonymous behaviors in this session
+            if (!string.IsNullOrEmpty(request.UserId) && !string.IsNullOrEmpty(request.SessionId))
+            {
+                var unlinked = await _unitOfWork.UserBehaviors.FindAsync(b =>
+                    !b.IsDeleted && b.UserId == null && b.SessionId == request.SessionId);
+                foreach (var b in unlinked)
+                {
+                    b.UserId = request.UserId;
+                }
+            }
+
             await _unitOfWork.SaveChangesAsync();
         }
         catch (Exception ex)
@@ -168,6 +217,18 @@ public class UserBehaviorService : IUserBehaviorService
             }
 
             await _unitOfWork.UserBehaviors.AddRangeAsync(behaviors);
+
+            var firstWithUser = requests.FirstOrDefault(r => !string.IsNullOrEmpty(r.UserId) && !string.IsNullOrEmpty(r.SessionId));
+            if (firstWithUser != null)
+            {
+                var unlinked = await _unitOfWork.UserBehaviors.FindAsync(b =>
+                    !b.IsDeleted && b.UserId == null && b.SessionId == firstWithUser.SessionId);
+                foreach (var b in unlinked)
+                {
+                    b.UserId = firstWithUser.UserId;
+                }
+            }
+
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Tracked {Count} behavior events", behaviors.Count);
@@ -194,13 +255,7 @@ public class UserBehaviorService : IUserBehaviorService
 
             // 1. Get user's behavior history (last 30 days)
             var cutoff = DateTime.UtcNow.AddDays(-30);
-            var behaviors = await _unitOfWork.UserBehaviors
-                .FindAsync(b => !b.IsDeleted
-                    && b.CreatedAt >= cutoff
-                    && ((userId != null && b.UserId == userId)
-                        || (sessionId != null && b.SessionId == sessionId)));
-
-            var behaviorList = behaviors.ToList();
+            var behaviorList = await FetchBehaviorsAsync(userId, sessionId, cutoff);
             if (!behaviorList.Any())
             {
                 // Cold-start fallback: top-rated & best-selling products
@@ -322,13 +377,7 @@ public class UserBehaviorService : IUserBehaviorService
 
             // 1. Fetch user behaviors (last 30 days)
             var cutoff = DateTime.UtcNow.AddDays(-30);
-            var behaviors = await _unitOfWork.UserBehaviors
-                .FindAsync(b => !b.IsDeleted
-                    && b.CreatedAt >= cutoff
-                    && ((userId != null && b.UserId == userId)
-                        || (sessionId != null && b.SessionId == sessionId)));
-
-            var behaviorList = behaviors.ToList();
+            var behaviorList = await FetchBehaviorsAsync(userId, sessionId, cutoff);
 
             // 2. Score categories and brands
             var categoryScores = new Dictionary<int, double>();
@@ -607,13 +656,7 @@ public class UserBehaviorService : IUserBehaviorService
         try
         {
             var cutoff = DateTime.UtcNow.AddDays(-7);
-            var viewBehaviors = await _unitOfWork.UserBehaviors
-                .FindAsync(b => !b.IsDeleted
-                    && b.BehaviorType == BehaviorType.View
-                    && b.ProductId.HasValue
-                    && b.CreatedAt >= cutoff
-                    && ((userId != null && b.UserId == userId)
-                        || (sessionId != null && b.SessionId == sessionId)));
+            var viewBehaviors = await FetchBehaviorsAsync(userId, sessionId, cutoff, BehaviorType.View, requireProduct: true);
 
             var recentProductIds = viewBehaviors
                 .OrderByDescending(b => b.CreatedAt)
@@ -651,13 +694,7 @@ public class UserBehaviorService : IUserBehaviorService
                 return "";
 
             var cutoff = DateTime.UtcNow.AddDays(-30);
-            var behaviors = await _unitOfWork.UserBehaviors
-                .FindAsync(b => !b.IsDeleted
-                    && b.CreatedAt >= cutoff
-                    && ((userId != null && b.UserId == userId)
-                        || (sessionId != null && b.SessionId == sessionId)));
-
-            var behaviorList = behaviors.ToList();
+            var behaviorList = await FetchBehaviorsAsync(userId, sessionId, cutoff);
             if (!behaviorList.Any())
                 return "";
 

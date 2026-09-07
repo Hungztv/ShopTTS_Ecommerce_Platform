@@ -15,7 +15,9 @@ public interface IProductRepository : IRepository<Product>
     Task<(IEnumerable<Product> items, int total)> GetFilteredAsync(
         Expression<Func<Product, bool>> predicate,
         int pageNumber,
-        int pageSize);
+        int pageSize,
+        string? sortBy = null,
+        string? sortOrder = null);
     Task<IEnumerable<Product>> GetInStockAsync();
     Task<IEnumerable<Product>> GetBestSellingAsync(int top = 10);
     Task<Product> GetWithRatingsAsync(int id);

@@ -167,6 +167,12 @@ export interface ShopPublic {
 
 // Shop Public Service
 export const shopsPublicService = {
+    async getAll(search?: string): Promise<ShopPublic[]> {
+        const queryParams = search ? `?search=${encodeURIComponent(search)}` : '';
+        const data = await fetchJson<ApiResponse<ShopPublic[]>>(`${API_URL}/Shops${queryParams}`);
+        return data?.data || [];
+    },
+
     async getBySlug(slug: string): Promise<ShopPublic | null> {
         const data = await fetchJson<ApiResponse<ShopPublic>>(`${API_URL}/Shops/slug/${slug}`);
         return data?.data || null;

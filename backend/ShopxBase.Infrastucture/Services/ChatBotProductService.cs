@@ -42,6 +42,11 @@ public interface IChatBotProductService
     /// Lấy danh sách categories hiện có
     /// </summary>
     Task<List<string>> GetAvailableCategoriesAsync();
+
+    /// <summary>
+    /// Kiểm tra xem câu hỏi có chứa mặt hàng sàn không kinh doanh hay không (tủ lạnh, máy giặt, ô tô...)
+    /// </summary>
+    bool IsUnsupportedProduct(string query, out string matchedKeyword);
 }
 
 /// <summary>
@@ -93,8 +98,8 @@ public class ChatBotProductService : IChatBotProductService
 
         var normalizedQuery = NormalizeText(query);
 
-        // 1. Nếu câu hỏi thuần túy chào hỏi hoặc hỏi thông tin cửa hàng, không xổ sản phẩm
-        if (IsNonProductQuery(normalizedQuery))
+        // 1. Nếu câu hỏi thuần túy chào hỏi hoặc hỏi thông tin cửa hàng, hoặc mặt hàng sàn không kinh doanh, không xổ sản phẩm
+        if (IsNonProductQuery(normalizedQuery) || IsUnsupportedProduct(normalizedQuery, out _))
         {
             return new List<ChatProductInfo>();
         }
@@ -442,6 +447,17 @@ public class ChatBotProductService : IChatBotProductService
         {
             var kbCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("ban phim") || c.Slug.Contains("ban-phim"));
             if (kbCat != null) matches.Add(kbCat);
+            var gameCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("gaming") || c.Slug.Contains("gaming"));
+            if (gameCat != null) matches.Add(gameCat);
+        }
+
+        // 12b. Chuột máy tính / Chuột gaming
+        if (ContainsAny(normalizedQuery, MouseTerms) || keywords.Any(k => MouseTerms.Any(t => k == t || t.Contains(k))))
+        {
+            var gameCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("gaming") || c.Slug.Contains("gaming"));
+            if (gameCat != null) matches.Add(gameCat);
+            var accCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("phu kien") || c.Slug.Contains("phu-kien"));
+            if (accCat != null) matches.Add(accCat);
         }
 
         // 12. Màn hình
@@ -549,8 +565,35 @@ public class ChatBotProductService : IChatBotProductService
         "tu", "van", "tuvan", "em", "minh", "gia", "tam", "khoang", "tai", "chinh",
         "ngan", "sach", "cu", "trieu", "tr", "lit", "k", "nghin", "ngan", "duoi", "tren",
         "den", "tot", "nhat", "dep", "ngon", "bo", "re", "mua", "shop", "a", "chiec", "cai",
-        "loai", "dong", "hang", "hieu", "bac", "ad", "admin", "nhi"
+        "loai", "dong", "hang", "hieu", "bac", "ad", "admin", "nhi", "may", "thiet", "bi",
+        "dien", "do", "san", "pham"
     };
+
+    public static readonly string[] UnsupportedProductTerms =
+    {
+        "tu lanh", "tulanh", "may giat", "maygiat", "may say", "maysay", "dieu hoa", "dieuhoa",
+        "may lanh", "maylanh", "noi com dien", "bep tu", "bep ga", "lo vi song", "may rua bat",
+        "xe may", "xemay", "o to", "oto", "xe dap", "xedap", "xe dien", "xedien",
+        "bat dong san", "nha dat", "chung cu", "ve may bay", "ve xem phim", "ve tau xe",
+        "sach vo", "sach giao khoa", "sach doc", "truyen tranh", "truyen chu", "mua sach",
+        "vang bac", "kim cuong", "trang suc vang", "nhan kim cuong"
+    };
+
+    public bool IsUnsupportedProduct(string query, out string matchedKeyword)
+    {
+        matchedKeyword = string.Empty;
+        if (string.IsNullOrWhiteSpace(query)) return false;
+        var norm = NormalizeText(query);
+        foreach (var term in UnsupportedProductTerms)
+        {
+            if (norm.Contains(term))
+            {
+                matchedKeyword = term;
+                return true;
+            }
+        }
+        return false;
+    }
 
     private static readonly string[] PhoneTerms =
     {
@@ -611,6 +654,11 @@ public class ChatBotProductService : IChatBotProductService
     private static readonly string[] KeyboardTerms =
     {
         "ban phim", "banphim", "keyboard", "phim co", "ban phim co", "keychron", "akko", "huntsman", "blackwidow", "switch", "keycap", "g713", "g915"
+    };
+
+    private static readonly string[] MouseTerms =
+    {
+        "chuot", "mouse", "chuot gaming", "chuot khong day", "superlight", "deathadder", "g502", "viper", "basilisk", "master 3s", "mx master"
     };
 
     private static readonly string[] MonitorTerms =

@@ -4,11 +4,50 @@ using ShopxBase.Application.Features.Shops.Commands.UpdateShop;
 using ShopxBase.Application.Features.Shops.Queries.GetMyShop;
 using ShopxBase.Application.Features.Shops.Queries.GetShopBySlug;
 using ShopxBase.Application.Features.Shops.Queries.GetShopProducts;
+using ShopxBase.Domain.Enums;
+using ShopxBase.Domain.Interfaces;
 
 namespace ShopxBase.Api.Controllers;
 
 public class ShopsController : BaseApiController
 {
+    private readonly IUnitOfWork _unitOfWork;
+
+    public ShopsController(IUnitOfWork unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+    }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAllShops([FromQuery] string? search = null)
+    {
+        var shops = await _unitOfWork.Shops.FindAsync(s => !s.IsDeleted && s.Status == ShopStatus.Active);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var sLower = search.ToLower();
+            shops = shops.Where(s => s.Name.ToLower().Contains(sLower) || (s.Description != null && s.Description.ToLower().Contains(sLower))).ToList();
+        }
+
+        var allProducts = await _unitOfWork.Products.FindAsync(p => !p.IsDeleted && p.Quantity > 0);
+        var productCountByShop = allProducts.GroupBy(p => p.ShopId).ToDictionary(g => g.Key, g => g.Count());
+
+        var shopDtos = shops.Select(s => new
+        {
+            s.Id,
+            s.Name,
+            s.Slug,
+            s.Description,
+            s.LogoUrl,
+            s.CoverUrl,
+            Status = s.Status.ToString(),
+            s.CreatedAt,
+            TotalProducts = productCountByShop.GetValueOrDefault(s.Id, 0)
+        });
+
+        return Success(shopDtos);
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> GetMyShop()

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5266/api';
 
@@ -56,33 +57,82 @@ export interface PersonalizedHomeFeed {
 }
 
 // ══════════════════════════════════════════
-//  Session ID management
+//  Session ID management (Account-scoped)
 // ══════════════════════════════════════════
 
 const SESSION_KEY = 'shoptts_session_id';
+const SESSION_USER_KEY = 'shoptts_session_user_id';
 
-export function getSessionId(): string {
+/**
+ * Get current session ID.
+ * Automatically rotates the session if the logged-in user changes or user logs out.
+ */
+export function getSessionId(currentUserId?: string | null): string {
   if (typeof window === 'undefined') return '';
-  let sessionId = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-  if (!sessionId) {
-    sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    try {
-      localStorage.setItem(SESSION_KEY, sessionId);
-      sessionStorage.setItem(SESSION_KEY, sessionId);
-    } catch {
-      // Ignore storage errors in private browsing
+
+  let activeUserId = currentUserId;
+  if (activeUserId === undefined) {
+    const token = Cookies.get('accessToken') || Cookies.get('supabaseAccessToken');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        activeUserId = payload.sub || payload.nameid || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || null;
+      } catch {
+        activeUserId = null;
+      }
+    } else {
+      activeUserId = null;
     }
   }
+
+  const storedUser = localStorage.getItem(SESSION_USER_KEY);
+  const normalizedActiveUser = activeUserId || '';
+  const normalizedStoredUser = storedUser || '';
+
+  // If user changed (e.g. User A -> User B, or User A -> logged out, or logged out -> User A)
+  if (normalizedActiveUser !== normalizedStoredUser) {
+    return resetSessionId(activeUserId);
+  }
+
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = resetSessionId(activeUserId);
+  }
   return sessionId;
+}
+
+/**
+ * Force-reset the session ID (e.g. on login or logout).
+ */
+export function resetSessionId(newUserId?: string | null): string {
+  if (typeof window === 'undefined') return '';
+  const prefix = newUserId ? `user_${newUserId.substring(0, 8)}` : 'guest';
+  const newSessionId = `sess_${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  try {
+    localStorage.setItem(SESSION_KEY, newSessionId);
+    sessionStorage.setItem(SESSION_KEY, newSessionId);
+    if (newUserId) {
+      localStorage.setItem(SESSION_USER_KEY, newUserId);
+    } else {
+      localStorage.removeItem(SESSION_USER_KEY);
+    }
+  } catch {
+    // Ignore storage errors in private browsing
+  }
+  return newSessionId;
 }
 
 // ══════════════════════════════════════════
 //  Auth token helper
 // ══════════════════════════════════════════
 
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+  const token =
+    Cookies.get('accessToken') ||
+    Cookies.get('supabaseAccessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token');
   if (token) {
     return { Authorization: `Bearer ${token}` };
   }
