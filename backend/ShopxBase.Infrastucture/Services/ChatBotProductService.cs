@@ -150,6 +150,24 @@ public class ChatBotProductService : IChatBotProductService
             {
                 return topProducts;
             }
+
+            // NẾU ĐÃ XÁC ĐỊNH ĐÚNG DANH MỤC (Ví dụ: Bàn phím cơ) nhưng không có sản phẩm nào điểm > 0
+            // (Ví dụ: người dùng tìm dưới 900k nhưng sản phẩm rẻ nhất là 990k):
+            // TUYỆT ĐỐI KHÔNG trả về rỗng hay để lọt sang sản phẩm lung tung (iPad, áo quần...)!
+            // Lấy ngay các sản phẩm thuộc chính danh mục đó có giá thấp nhất/gần ngân sách nhất để AI tư vấn trung thực!
+            if (uniqueCandidates.Any())
+            {
+                return uniqueCandidates
+                    .OrderBy(p => p.Price)
+                    .Take(maxResults)
+                    .Select(p =>
+                    {
+                        var info = MapToInfo(p);
+                        info.HighlightBadge = "Giá tốt nhất";
+                        return info;
+                    })
+                    .ToList();
+            }
         }
 
         // 5. TRƯỜNG HỢP 2: Không thuộc danh mục cố định, tìm theo Brand hoặc từ khóa tên sản phẩm
@@ -419,6 +437,71 @@ public class ChatBotProductService : IChatBotProductService
             if (bagCat != null) matches.Add(bagCat);
         }
 
+        // 12. Bàn phím cơ / Bàn phím
+        if (ContainsAny(normalizedQuery, KeyboardTerms) || keywords.Any(k => KeyboardTerms.Any(t => k == t || t.Contains(k))))
+        {
+            var kbCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("ban phim") || c.Slug.Contains("ban-phim"));
+            if (kbCat != null) matches.Add(kbCat);
+        }
+
+        // 12. Màn hình
+        if (ContainsAny(normalizedQuery, MonitorTerms) || keywords.Any(k => MonitorTerms.Any(t => k == t || t.Contains(k))))
+        {
+            var monCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("man hinh") || c.Slug.Contains("man-hinh"));
+            if (monCat != null) matches.Add(monCat);
+        }
+
+        // 13. Thiết bị mạng & Camera
+        if (ContainsAny(normalizedQuery, NetworkTerms) || keywords.Any(k => NetworkTerms.Any(t => k == t || t.Contains(k))))
+        {
+            var netCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("thiet bi mang") || c.Slug.Contains("thiet-bi-mang"));
+            if (netCat != null) matches.Add(netCat);
+        }
+
+        // 14. Gia dụng thông minh
+        if (ContainsAny(normalizedQuery, SmartHomeTerms) || keywords.Any(k => SmartHomeTerms.Any(t => k == t)))
+        {
+            var shCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("gia dung") || c.Slug.Contains("gia-dung"));
+            if (shCat != null) matches.Add(shCat);
+        }
+
+        // 15. Máy ảnh
+        if (ContainsAny(normalizedQuery, CameraTerms) || keywords.Any(k => CameraTerms.Any(t => k == t)))
+        {
+            var camCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("may anh") || c.Slug.Contains("may-anh"));
+            if (camCat != null) matches.Add(camCat);
+        }
+
+        // 16. Gaming
+        if (ContainsAny(normalizedQuery, GamingTerms) || keywords.Any(k => GamingTerms.Any(t => k == t)))
+        {
+            var gameCat = allCategories.FirstOrDefault(c => NormalizeText(c.Name).Contains("gaming") || c.Slug.Contains("gaming"));
+            if (gameCat != null) matches.Add(gameCat);
+        }
+
+        // 17. QUÉT ĐỐI SOÁT ĐỘNG: Bất kỳ danh mục nào trong DB có tên / slug trùng khớp với truy vấn
+        foreach (var c in allCategories)
+        {
+            var cNorm = NormalizeText(c.Name);
+            if (string.IsNullOrWhiteSpace(cNorm) || cNorm.Length < 3) continue;
+
+            if (normalizedQuery.Contains(cNorm))
+            {
+                matches.Add(c);
+                continue;
+            }
+
+            var words = cNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length >= 2)
+            {
+                var twoWord = $"{words[0]} {words[1]}";
+                if (normalizedQuery.Contains(twoWord))
+                {
+                    matches.Add(c);
+                }
+            }
+        }
+
         return matches.DistinctBy(c => c.Id).ToList();
     }
 
@@ -523,6 +606,36 @@ public class ChatBotProductService : IChatBotProductService
     private static readonly string[] TvTerms =
     {
         "tivi", "tv", "smart tv"
+    };
+
+    private static readonly string[] KeyboardTerms =
+    {
+        "ban phim", "banphim", "keyboard", "phim co", "ban phim co", "keychron", "akko", "huntsman", "blackwidow", "switch", "keycap", "g713", "g915"
+    };
+
+    private static readonly string[] MonitorTerms =
+    {
+        "man hinh", "manhinh", "monitor", "display", "ultrasharp", "ultragear", "viewfinity", "proart", "mobiuz"
+    };
+
+    private static readonly string[] NetworkTerms =
+    {
+        "thiet bi mang", "camera", "wifi", "router", "access point", "tapo", "tplink", "tp-link"
+    };
+
+    private static readonly string[] SmartHomeTerms =
+    {
+        "gia dung thong minh", "robot hut bui", "may loc khong khi", "nha thong minh", "smart home"
+    };
+
+    private static readonly string[] CameraTerms =
+    {
+        "may anh", "camera dslr", "mirrorless", "sony alpha", "canon", "nikon", "fujifilm"
+    };
+
+    private static readonly string[] GamingTerms =
+    {
+        "gaming", "tay cam", "playstation", "ps5", "xbox", "nintendo"
     };
 
     public async Task<List<ChatProductInfo>> GetSimilarProductsAsync(int productId, int maxResults = 5)

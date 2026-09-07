@@ -110,7 +110,7 @@ public class ChatBotController : ControllerBase
             }
 
             // ── RAG: Embed query → vector search → inject context ──
-            var ragContext = await GetRagContextAsync(request.Message);
+            var ragContext = await GetRagContextAsync(request.Message, products);
             if (!string.IsNullOrEmpty(ragContext))
                 extraContext = string.IsNullOrEmpty(extraContext)
                     ? ragContext
@@ -226,7 +226,7 @@ public class ChatBotController : ControllerBase
             }
 
             // ── RAG: Embed query → vector search → inject context ──
-            var ragContext = await GetRagContextAsync(request.Message);
+            var ragContext = await GetRagContextAsync(request.Message, products);
             if (!string.IsNullOrEmpty(ragContext))
                 extraContext = string.IsNullOrEmpty(extraContext)
                     ? ragContext
@@ -510,7 +510,7 @@ public class ChatBotController : ControllerBase
     // ══════════════════════════════════════════════════
 
     // ── RAG: Embed query → vector search → return context string ──
-    private async Task<string> GetRagContextAsync(string userMessage)
+    private async Task<string> GetRagContextAsync(string userMessage, List<ChatProductInfo>? foundProducts = null)
     {
         try
         {
@@ -527,12 +527,34 @@ public class ChatBotController : ControllerBase
             }
 
             // 2️⃣ Search Supabase for top 3 closest chunks
-            var results = await _vectorSearchService.SearchAsync(queryEmbedding, topK: 3, threshold: 0.4);
+            var results = await _vectorSearchService.SearchAsync(queryEmbedding, topK: 3, threshold: 0.45);
 
             if (!results.Any())
             {
                 _logger.LogInformation("RAG: No relevant documents found for query");
                 return "";
+            }
+
+            // CRITICAL: Nếu đã tìm được sản phẩm chính xác từ DB cho danh mục cụ thể (vd: Bàn phím),
+            // loại bỏ các tài liệu RAG sản phẩm thuộc danh mục hoàn toàn khác (vd: iPad, Vivobook...)
+            if (foundProducts != null && foundProducts.Any())
+            {
+                var allowedProductIds = foundProducts.Select(p => (int?)p.Id).ToHashSet();
+                var allowedCategories = foundProducts
+                    .Select(p => p.CategoryName.ToLowerInvariant())
+                    .Where(c => !string.IsNullOrEmpty(c))
+                    .ToList();
+
+                results = results.Where(r =>
+                    r.Source != "product" ||
+                    (r.SourceId.HasValue && allowedProductIds.Contains(r.SourceId)) ||
+                    allowedCategories.Any(c => r.Content.ToLowerInvariant().Contains(c))
+                ).ToList();
+
+                if (!results.Any())
+                {
+                    return "";
+                }
             }
 
             // 3️⃣ Format results as context for the LLM
@@ -545,7 +567,7 @@ public class ChatBotController : ControllerBase
             _logger.LogInformation("RAG: Found {Count} relevant documents (best similarity: {Sim:P0})",
                 results.Count, results.First().Similarity);
 
-            return $"📚 KIẾN THỨC TỪ CƠ SỞ DỮ LIỆU (RAG):\n{string.Join("\n\n", contextLines)}";
+            return $"📚 KIẾN THỨC BỔ SUNG (RAG):\n{string.Join("\n\n", contextLines)}";
         }
         catch (Exception ex)
         {
@@ -669,6 +691,13 @@ public class ChatBotController : ControllerBase
                             ? $"từ {minPrice:N0}đ trở lên"
                             : $"dưới {maxPrice:N0}đ";
                     extraContext = $"💰 Khách hàng đang tìm sản phẩm trong khoảng giá {priceDesc}. Hãy ưu tiên giới thiệu các sản phẩm đúng tầm giá này.";
+
+                    // Nếu khách tìm mức giá tối đa nhưng tất cả sản phẩm tìm được đều có giá cao hơn
+                    if (maxPrice.HasValue && products.All(p => p.Price > maxPrice.Value))
+                    {
+                        var lowestP = products.OrderBy(p => p.Price).First();
+                        extraContext += $"\n\n⚠️ LƯU Ý BẮT BUỘC VỀ NGÂN SÁCH: Khách hàng tìm kiếm sản phẩm với giá dưới {maxPrice:N0}đ. Tuy nhiên hiện tại trong kho ShopTTS, sản phẩm có giá thấp nhất thuộc danh mục này là **{lowestP.Name}** với giá **{lowestP.Price:N0}đ** (chỉ chênh lệch {lowestP.Price - maxPrice.Value:N0}đ). Bạn PHẢI TRUNG THỰC THÔNG BÁO RÕ RÀNG cho khách: 'Hiện tại ShopTTS chưa có mẫu nào dưới {maxPrice:N0}đ, nhưng mẫu có giá tốt nhất và gần nhất với ngân sách của bạn là {lowestP.Name} ({lowestP.Price:N0}đ)'. TUYỆT ĐỐI KHÔNG được bịa rằng có mẫu dưới {maxPrice:N0}đ!";
+                    }
                 }
                 break;
         }
@@ -746,7 +775,7 @@ public class ChatBotController : ControllerBase
         // 7. SPECIFIC PRODUCT / CATEGORY QUERY - Ưu tiên hàng đầu cho việc tìm sản phẩm!
         // Nếu câu hỏi có tên danh mục hoặc tên sản phẩm (laptop, điện thoại, macbook, tai nghe, màn hình...),
         // luôn gán là SearchProduct để SmartSearchAsync tìm đúng danh mục sản phẩm đó!
-        if (Regex.IsMatch(lower, @"(laptop|macbook|notebook|thinkpad|vivobook|zenbook|legion|tuf|omen|spectre|inspiron|phone|smartphone|điện thoại|dien thoai|tai nghe|headphone|earbuds|airpods|đồng hồ|dong ho|smartwatch|ipad|máy tính bảng|may tinh bang|máy tính|may tinh|màn hình|man hinh|tivi|tv|loa|airtag|samsung|apple|iphone|xiaomi|oppo|dell|asus|lenovo|hp|msi|giày|quần|áo|túi|balo)"))
+        if (Regex.IsMatch(lower, @"(bàn phím|ban phim|keyboard|chuột|chuot|mouse|keychron|akko|màn hình|man hinh|monitor|laptop|macbook|notebook|thinkpad|vivobook|zenbook|legion|tuf|omen|spectre|inspiron|phone|smartphone|điện thoại|dien thoai|tai nghe|headphone|earbuds|airpods|đồng hồ|dong ho|smartwatch|ipad|máy tính bảng|may tinh bang|máy tính|may tinh|tivi|tv|loa|airtag|samsung|apple|iphone|xiaomi|oppo|dell|asus|lenovo|hp|msi|giày|quần|áo|túi|balo|camera|wifi|router)"))
             return ChatIntent.SearchProduct;
 
         // 8. Price range
@@ -875,54 +904,63 @@ public class ChatBotController : ControllerBase
     }
 
     // ── Extract price from message ──
-    private static (decimal? min, decimal? max) ExtractPriceRange(string message)
+    private static decimal ParsePriceUnit(string numberStr, string unit)
+    {
+        var val = decimal.Parse(numberStr.Replace(",", "."), CultureInfo.InvariantCulture);
+        var u = unit.ToLowerInvariant();
+        if (u is "k" or "nghìn" or "nghin" or "ngàn" or "ngan" or "lit" or "lít")
+            return val * 1_000m;
+        return val * 1_000_000m; // triệu, tr, củ, m...
+    }
+
+    private static (decimal? Min, decimal? Max) ExtractPriceRange(string message)
     {
         var lower = message.ToLower();
         decimal? min = null, max = null;
+        const string units = @"triệu|trieu|tr|m|củ|cu|nghìn|nghin|ngàn|ngan|k|lit|lít";
 
-        // "dưới X triệu/củ/tr/m" / "< X" / "tối đa X"
-        var underMatch = Regex.Match(lower, @"(?:dưới|duoi|nho hon|<|khong qua|toi da)\s+(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
+        // 1. "dưới / nhỏ hơn / < / không quá / tối đa X [đơn vị]"
+        var underMatch = Regex.Match(lower, $@"(?:dưới|duoi|nho hon|<|khong qua|toi da)\s+(\d+(?:[.,]\d+)?)\s*({units})\b");
         if (underMatch.Success)
         {
-            max = decimal.Parse(underMatch.Groups[1].Value.Replace(",", "."),
-                CultureInfo.InvariantCulture) * 1_000_000;
+            max = ParsePriceUnit(underMatch.Groups[1].Value, underMatch.Groups[2].Value);
         }
 
-        // "trên X triệu/củ/tr/m" / "> X" / "tối thiểu X"
-        var overMatch = Regex.Match(lower, @"(?:trên|tren|lon hon|>|toi thieu)\s+(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
+        // 2. "trên / lớn hơn / > / tối thiểu X [đơn vị]"
+        var overMatch = Regex.Match(lower, $@"(?:trên|tren|lon hon|>|toi thieu)\s+(\d+(?:[.,]\d+)?)\s*({units})\b");
         if (overMatch.Success)
         {
-            min = decimal.Parse(overMatch.Groups[1].Value.Replace(",", "."),
-                CultureInfo.InvariantCulture) * 1_000_000;
+            min = ParsePriceUnit(overMatch.Groups[1].Value, overMatch.Groups[2].Value);
         }
 
-        // "từ X đến Y triệu/củ/tr/m"
-        var rangeMatch = Regex.Match(lower, @"(?:từ|tu|tầm|tam|khoảng|khoang)\s+(\d+(?:[.,]\d+)?)\s*(?:đến|den|tới|toi|-)\s*(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
+        // 3. "từ X đến Y [đơn vị]"
+        var rangeMatch = Regex.Match(lower, $@"(?:từ|tu|tầm|tam|khoảng|khoang)\s+(\d+(?:[.,]\d+)?)\s*(?:{units})?\s*(?:đến|den|tới|toi|-)\s*(\d+(?:[.,]\d+)?)\s*({units})\b");
         if (rangeMatch.Success)
         {
-            min = decimal.Parse(rangeMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
-            max = decimal.Parse(rangeMatch.Groups[2].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
+            var unit = rangeMatch.Groups[3].Value;
+            min = ParsePriceUnit(rangeMatch.Groups[1].Value, unit);
+            max = ParsePriceUnit(rangeMatch.Groups[2].Value, unit);
         }
 
-        // "tầm / khoảng / tài chính / có / budget X triệu/củ/tr/m" (without range → ±25%)
+        // 4. "tầm / khoảng / tài chính / có / budget X [đơn vị]" (without range → ±25%)
         if (min == null && max == null)
         {
-            var aroundMatch = Regex.Match(lower, @"(?:tầm|tam|khoảng|khoang|tài chính|tai chinh|ngân sách|ngan sach|có|co|budget|giá|gia)?\s*(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m|củ|cu)\b");
+            var aroundMatch = Regex.Match(lower, $@"(?:tầm|tam|khoảng|khoang|tài chính|tai chinh|ngân sách|ngan sach|có|co|budget|giá|gia)\s*(\d+(?:[.,]\d+)?)\s*({units})\b");
             if (aroundMatch.Success)
             {
-                var val = decimal.Parse(aroundMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000_000;
+                var val = ParsePriceUnit(aroundMatch.Groups[1].Value, aroundMatch.Groups[2].Value);
                 min = Math.Max(0, val * 0.75m);
                 max = val * 1.25m;
             }
         }
 
-        // "X nghìn / k / ngàn / lít"
+        // 5. Bare "X [đơn vị]" nếu không có từ khóa trên
         if (min == null && max == null)
         {
-            var nghinMatch = Regex.Match(lower, @"(\d+(?:[.,]\d+)?)\s*(nghìn|nghin|ngàn|ngan|k)\b");
-            if (nghinMatch.Success)
+            var bareMatch = Regex.Match(lower, $@"\b(\d+(?:[.,]\d+)?)\s*({units})\b");
+            if (bareMatch.Success)
             {
-                var val = decimal.Parse(nghinMatch.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture) * 1_000;
+                var val = ParsePriceUnit(bareMatch.Groups[1].Value, bareMatch.Groups[2].Value);
                 min = Math.Max(0, val * 0.75m);
                 max = val * 1.25m;
             }
@@ -1056,11 +1094,16 @@ HÃY TRÌNH BÀY THÔNG TIN NÀY MỘT CÁCH ĐẸP MẮT BẰNG MARKDOWN, KHÔN
 - Phân tích có chiều sâu kỹ thuật nhưng giải thích bằng ngôn ngữ dễ hiểu, thực tế.
 
 📋 NGUYÊN TẮC BẮT BUỘC:
-1. CHỈ tư vấn và giới thiệu các sản phẩm CÓ THẬT trong danh sách [DỮ LIỆU SẢN PHẨM THỰC TẾ TỪ HỆ THỐNG SHOPTTS] bên dưới. TUYỆT ĐỐI KHÔNG bịa đặt sản phẩm, giá bán hay thông số ngoài danh sách.
-2. ĐỒNG BỘ TUYỆT ĐỐI VỚI GIAO DIỆN: Các sản phẩm trong danh sách bên dưới CHÍNH LÀ các thẻ sản phẩm đang hiển thị trực tiếp trước mắt khách hàng trong khung chat. Bạn PHẢI tập trung phân tích ưu/nhược điểm và gợi ý từ chính các sản phẩm này để khách có thể bấm 'Xem chi tiết' hoặc 'Thêm vào giỏ' ngay lập tức.
-3. Định dạng giá tiền: Luôn viết rõ ràng bằng VNĐ có dấu chấm phân cách (ví dụ: **15.990.000đ**).
-4. KHÔNG đề cập đến sàn thương mại điện tử đối thủ (Shopee, Lazada, Tiki, TikTok Shop). Luôn khẳng định sản phẩm có sẵn tại ShopTTS.
-5. Khi người dùng hỏi so sánh (Comparison): Phải so sánh chi tiết các khía cạnh (Giá, Hiệu năng, Màn hình/Thiết kế, Camera, Pin) và kết luận rõ ai nên chọn máy nào.
+1. TÍNH CHÍNH XÁC TUYỆT ĐỐI VỀ DỮ LIỆU & DANH MỤC:
+   - CHỈ tư vấn và phân tích các sản phẩm CÓ THẬT trong danh sách [DỮ LIỆU SẢN PHẨM THỰC TẾ TỪ HỆ THỐNG SHOPTTS] bên dưới. TUYỆT ĐỐI KHÔNG bịa đặt sản phẩm, giá bán hay thông số ngoài danh sách.
+   - TUYỆT ĐỐI KHÔNG đưa các sản phẩm KHÔNG LIÊN QUAN đến danh mục khách đang hỏi vào câu trả lời (Ví dụ: khách hỏi 'bàn phím' thì TUYỆT ĐỐI KHÔNG liệt kê máy tính bảng iPad, laptop, áo quần... vào danh sách sản phẩm hay bảng so sánh).
+2. TRUNG THỰC VỀ NGÂN SÁCH & TỒN KHO:
+   - Nếu trong kho không có sản phẩm nào có giá đúng chính xác dưới mức ngân sách của khách (ví dụ: khách tìm dưới 900k nhưng mẫu rẻ nhất trong kho là 990k), bạn PHẢI THẲNG THẮN VÀ TRUNG THỰC: 'Hiện tại ShopTTS chưa có mẫu [danh mục] nào có giá dưới [ngân sách]đ. Tuy nhiên, mẫu có giá tốt nhất và gần ngân sách nhất của bạn là [Tên sản phẩm] với giá [Giá]đ...'.
+   - TUYỆT ĐỐI KHÔNG mâu thuẫn: Không bao giờ được vừa nói 'không có mẫu nào dưới 900k' rồi lại nói 'ShopTTS có nhiều mẫu từ dưới 1 triệu'.
+3. ĐỒNG BỘ TUYỆT ĐỐI VỚI GIAO DIỆN: Các sản phẩm trong danh sách bên dưới CHÍNH LÀ các thẻ sản phẩm đang hiển thị trực tiếp trước mắt khách hàng trong khung chat. Bạn PHẢI tập trung phân tích ưu/nhược điểm và gợi ý từ chính các sản phẩm này để khách có thể bấm 'Xem chi tiết' hoặc 'Thêm vào giỏ' ngay lập tức.
+4. Định dạng giá tiền: Luôn viết rõ ràng bằng VNĐ có dấu chấm phân cách (ví dụ: **990.000đ**, **15.990.000đ**).
+5. KHÔNG đề cập đến sàn thương mại điện tử đối thủ (Shopee, Lazada, Tiki, TikTok Shop). Luôn khẳng định sản phẩm có sẵn tại ShopTTS.
+6. Khi người dùng hỏi so sánh (Comparison): Phải so sánh chi tiết các khía cạnh (Giá, Hiệu năng, Màn hình/Thiết kế, Camera, Pin) và kết luận rõ ai nên chọn máy nào.
 
 💡 QUY CHUẨN CẤU TRÚC PHẢN HỒI KHI TƯ VẤN:
 1. **Mở đầu thấu cảm**: Tóm tắt lại đúng tiêu chí/ngân sách của khách để tạo sự an tâm.
